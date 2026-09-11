@@ -143,6 +143,7 @@ question
 inputs / assets
 answer_type
 ground_truth
+answer_requirements
 source_provenance
 construction
 calculation
@@ -170,6 +171,7 @@ calculation 和 multimodal 是条件结构：不满足适用条件时可以不�
 | inputs | object | Required | 输入形式和 Asset Reference 容器 | 至少含 primary_modality；T3 需要 Visual Asset |
 | answer_type | enum | Required | Ground Truth 的判别类型 | 必须是第 14 节定义的类型之一 |
 | ground_truth | discriminated object | Required | 与 answer_type 对应的类型化答案 | 不允许把所有答案都保存为无类型的 answer 字符串 |
+| answer_requirements | object | Conditional Required | 模型答案的表达要求 | numeric Item 至少提供 numeric_unit_policy；不改变 Canonical Ground Truth |
 | source_provenance | object | Required | Item 的来源类型和 Evidence 引用 | Source-grounded Item 至少引用一个有效 Evidence |
 | construction | object | Required | Item 如何构建、转换或生成 | 不保存 API Key、Token、Secret 或整份 Source PDF |
 | calculation | object | Conditional Required | 公式、变量、约束和计算核验信息 | T2 以及 T3 中包含定量计算的 Item 应提供 |
@@ -853,6 +855,33 @@ ground_truth:
 ~~~
 
 不得把任意长作文直接塞进 structured_answer。开放式长答案不作为 V1 的主要题型。
+
+### 14.7 answer_requirements
+
+answer_requirements 是 Conditional Field，用于描述模型必须如何表达答案，不改变 Canonical Ground Truth。对于 answer_type = numeric，至少支持：
+
+~~~text
+answer_requirements:
+  numeric_unit_policy
+~~~
+
+numeric_unit_policy 初始允许：
+
+~~~text
+unit_specified_in_question
+explicit_unit_required
+dimensionless
+~~~
+
+语义如下：
+
+| numeric_unit_policy | 含义 |
+| --- | --- |
+| unit_specified_in_question | 题目已指定 Canonical Unit，例如“结果以 N·m 表示”；模型只输出 955 时可以按该单位解释；Ground Truth 仍保存 unit = N·m |
+| explicit_unit_required | 题目没有为模型固定唯一输出单位，或明确要求给出单位；模型必须显式提供可兼容单位，例如 955 N·m 或 0.955 kN·m；只输出 955 不能默认猜测单位 |
+| dimensionless | 对应 ground_truth.dimensionless = true，不需要单位 |
+
+该字段只定义答案表达要求。评分仍必须使用 Ground Truth 中唯一的 value、unit、dimensionless、absolute_tolerance、relative_tolerance、rounding_rule 和 accepted_unit_conversions。
 
 ## 15. Ground Truth Explanation 与内部说明
 
@@ -1565,6 +1594,15 @@ Released Item 的 Question、Ground Truth、Source Provenance、Answer Type、�
 
 程序计算或公式验证的结果必须与 Ground Truth 对应；如果 Calculation Audit 结果与 Ground Truth 冲突，不得通过 Ground Truth Verification，且 Item 必须进入后续 review 流程。
 
+### Rule 23：Numeric Unit Policy Consistency
+
+当 answer_type = numeric 时，answer_requirements.numeric_unit_policy 必须与 Ground Truth 的单位状态一致：
+
+- ground_truth.dimensionless = true 时，numeric_unit_policy 必须为 dimensionless；
+- numeric_unit_policy = dimensionless 时，ground_truth.unit 必须为 null；
+- Ground Truth 有物理单位时，numeric_unit_policy 不得为 dimensionless；
+- numeric_unit_policy = unit_specified_in_question 或 explicit_unit_required 时，Ground Truth 必须提供对应的 Canonical Unit。
+
 ## 31. Canonical JSON Example
 
 以下是三个可读的完整概念示例，用于展示不同 Track 的字段关系。它们不是已生成的 Benchmark 数据，也不是最终 JSON Schema；其中的 Document、Evidence 和 Asset ID 是示例占位标识。
@@ -1748,6 +1786,9 @@ Released Item 的 Question、Ground Truth、Source Provenance、Answer Type、�
     "assets": []
   },
   "answer_type": "numeric",
+  "answer_requirements": {
+    "numeric_unit_policy": "unit_specified_in_question"
+  },
   "ground_truth": {
     "value": 955.0,
     "unit": "N·m",
@@ -1905,6 +1946,9 @@ Released Item 的 Question、Ground Truth、Source Provenance、Answer Type、�
     ]
   },
   "answer_type": "numeric",
+  "answer_requirements": {
+    "numeric_unit_policy": "unit_specified_in_question"
+  },
   "ground_truth": {
     "value": 0.20,
     "unit": "mm",
@@ -2251,3 +2295,4 @@ Data Specification v0.1 只设计 Benchmark 数据契约，不开始以下工作
 | 版本 | 日期 | 变更说明 |
 | --- | --- | --- |
 | v0.1 | 2026-09-11 | 将原占位结构扩展为 Data Specification v0.1 初始逻辑数据契约；保留所有尚未决定事项为 TBD |
+| v0.1 | 2026-09-11 | 补充 backward-compatible 的 answer_requirements.numeric_unit_policy 及对应 Cross-field Validation；版本保持 0.1 |

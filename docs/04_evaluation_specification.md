@@ -7,7 +7,7 @@
 | Project | Mechanical Industry General Benchmark |
 | Document | Evaluation Specification |
 | Version | 0.1 |
-| Status | Draft - Pending Review |
+| Status | Reviewed - Baseline |
 | Phase | Phase 0 - Benchmark Design |
 | Current Task | Evaluation Specification v0.1 |
 
@@ -119,14 +119,18 @@ evaluation_run:
   evaluation_profile_version
 
   model
-  model_adapter
+  model_adapter_id
+  model_adapter_version
   prompt_policy
+  prompt_template_id
+  prompt_template_version
   generation_config
   runtime_environment
 
   started_at
   completed_at
   run_status
+  run_completeness
 ~~~
 
 ### 4.1 Model Metadata
@@ -153,7 +157,7 @@ Model Adapter 负责：
 
 - 将 Canonical Question 转换为目标模型输入；
 - 根据模型能力传递允许的 Text、Table 或 Visual Asset；
-- 记录 Adapter ID 和 Version；
+- 记录 model_adapter_id 和 model_adapter_version；
 - 保留模型返回的 Raw Response；
 - 不改变题目语义和 Ground Truth。
 
@@ -174,6 +178,26 @@ endpoint_reference
 ### 4.4 Run Status
 
 Run Status 用于区分计划、运行完成、部分完成、无效和失败等运行结果。其最终 Controlled Vocabulary、Run Invalid / Partial 的正式判定规则仍为 TBD，不得用单一的模型平均分替代运行状态。
+
+### 4.5 Evaluation Run Completeness
+
+Evaluation Run Completeness 用于表达本次 Run 是否已经产生足以形成官方结果的可信 Item Score，不能与模型成绩高低混淆。初始状态为：
+
+~~~text
+complete
+partial
+invalid
+~~~
+
+语义如下：
+
+| run_completeness | 含义 |
+| --- | --- |
+| complete | 所有本 Evaluation Profile 要求评测的 Item 均已产生可信 Item Score |
+| partial | 存在 runtime error、unresolved Judge 或其他尚未解决的非内容型缺失，只允许 Diagnostic Reporting |
+| invalid | 发生 Dataset Snapshot、Prompt / Adapter、Visual Asset、Evaluator 配置或 Result Manifest 等系统性问题；正式阈值仍为 TBD |
+
+complete 只表示本次评测完整、可信，不代表模型成绩高。存在未解决 Runtime Error 的 Run 不允许发布 Complete Official Score。
 
 ## 5. Dataset Snapshot 与 Revision 冻结
 
@@ -289,9 +313,11 @@ reasoning / thinking mode（如可配置）
 每个 Item Result 必须尽可能保留：
 
 ~~~text
+inference_status
 raw_response
 parsed_answer
 parse_status
+error_category
 ~~~
 
 三个对象必须保持语义分离：
@@ -308,30 +334,79 @@ Score
 
 ## 11. Parse Status
 
-Parse Status 至少包括：
+Inference Status 与 Parse Status 属于不同层级。Model Inference 先决定是否成功产生可解析的 Assistant Response，只有在成功时才进入 Answer Parser。
+
+### 11.1 inference_status
+
+inference_status 至少包括：
+
+~~~text
+success
+runtime_error
+unsupported
+~~~
+
+runtime_error 可以通过 error_category 做有限的运行错误分类：
+
+~~~text
+timeout
+network_error
+provider_error
+http_error
+adapter_error
+input_construction_error
+other_runtime_error
+~~~
+
+该分类只用于区分主要处理路径，不在 v0.1 进一步设计过细的 Error Taxonomy。
+
+### 11.2 parse_status
+
+parse_status 仅在 inference_status = success 后有意义，至少包括：
 
 ~~~text
 parsed
 invalid_format
 no_answer
 ambiguous_parse
-runtime_error
+not_applicable
 ~~~
 
-runtime_error 必须能够进一步区分模型调用失败、传输失败、服务错误和正常模型输出错误。正常输出无法解析时，不得伪装成 Runtime Error。
+Transport / API / Infrastructure Failure 必须记录为：
+
+~~~text
+inference_status = runtime_error
+parse_status = not_applicable
+~~~
+
+unsupported 也不应进入 Answer Parser；在不适用的 Item Result 中，parse_status 使用 not_applicable。
+
+runtime_error 不属于 Answer Parser，也不能被当成 Parsing Failure。正常输出无法解析时，应使用 invalid_format、no_answer 或 ambiguous_parse。
 
 当 Parser 无法可靠提取答案时，Official Item Score 默认不得通过猜测性解释获得正确分。该结果应保留 Parse Status 和 Error Category，供 Run Policy 与报告使用。
 
-## 12. Model-agnostic Answer Parser
+## 12. Provider Response Extraction 与 Semantic Answer Parser
 
-Answer Parser 只做格式提取和规范化，必须保持 model-agnostic / ground-truth-blind。
+Provider-specific Response Extraction 与 Semantic Answer Parser 分为两层：
+
+~~~text
+Provider / Adapter Response Extraction
+        ↓
+Canonical Assistant Response
+        ↓
+Ground-truth-blind Answer Parser
+~~~
+
+第一层允许 Adapter 处理 Provider-specific envelope，例如 JSON response wrapper、message object、content blocks 和 multimodal response envelope，并将其整理为 Canonical Assistant Response。
+
+第二层 Semantic Answer Parser 只做格式提取和规范化。它可以 format-aware / adapter-aware，可以知道 Answer Type 和合法输出格式，但必须保持 ground-truth-blind、evaluation-policy-consistent。
 
 Parser 不得：
 
 - “替模型修答案”；
 - 根据 Ground Truth 选择模型同时给出的多个候选答案中的一个；
 - 把不确定表述强行解释为唯一答案；
-- 因为某个模型常用某种格式而放宽本题的解析规则。
+- 因为某个模型的实际正确率或常用格式而放宽本题的解析规则。
 
 例如模型输出：
 
@@ -431,28 +506,27 @@ Raw Response
 → Score
 ~~~
 
-如果 Ground Truth 有物理单位，模型答案必须与该 Canonical Quantity Dimension 兼容。若题目明确要求“答案以 N·m 给出”，纯数值输出可以解释为指定的 Canonical Unit；否则必须按照 Unit Policy 判断缺少单位是否构成无法确认的答案。
+如果 Ground Truth 有物理单位，模型答案必须与该 Canonical Quantity Dimension 兼容。模型答案中是否必须显式带单位，直接读取 Data Specification 中的 answer_requirements.numeric_unit_policy；不得依赖 Runner 从自然语言 Question 临时推断。
 
 ## 17. Numeric Unit Policy
 
-Unit Policy 必须明确区分以下两个概念：
+Unit Policy 直接读取 Data Specification 中的：
 
 ~~~text
-explicit_output_unit_in_question
-unit_required_from_model
+answer_requirements.numeric_unit_policy
 ~~~
 
-其语义为：
+初始枚举及其语义为：
 
-| 条件 | 处理原则 |
+| numeric_unit_policy | 处理原则 |
 | --- | --- |
-| explicit_output_unit_in_question = true | 题目已指定 Canonical Unit；模型输出纯数值时可解释为该单位 |
-| unit_required_from_model = true 且模型未提供单位 | 默认不能直接假定单位正确；按 Invalid / Unit Missing 处理 |
-| 提供可转换的兼容单位 | 先转换至 Ground Truth Canonical Unit，再比较 |
+| unit_specified_in_question | 题目已指定 Canonical Unit；模型输出纯数值时可解释为该单位，Ground Truth 仍保存该单位 |
+| explicit_unit_required | 模型必须显式提供可兼容单位；955 N·m 与 0.955 kN·m 均可在转换后比较，纯数值不能默认猜测单位 |
+| dimensionless | 对应 ground_truth.dimensionless = true，不需要单位 |
 | Quantity Dimension 不兼容 | Official Score = 0 |
 | 单位无法可靠提取或存在冲突 | 不猜测，进入 Invalid / Ambiguous 状态 |
 
-若两个字段都未明确，具体默认策略需要在后续 Pilot / Quality Review 中确认，不得由某个 Runner 私自决定。
+answer_requirements 只定义模型必须如何表达答案，不是新的 Ground Truth。Ground Truth 仍是 Canonical Scoring Truth。
 
 ## 18. Numeric Tolerance Rule
 
@@ -557,9 +631,13 @@ field_ground_truth
 Item Score = mean(required_field_scores)
 ~~~
 
+每个 field_score 都必须来自版本化 Evaluator，例如 exact、alias、regex、structured rule 或 LLM Judge，并在 Result 中能够追踪对应版本。
+
 Optional Field 不计入默认 Official Score，除非 Evaluation Policy 明确指定。后续 Evaluator Config 可以支持 weighted_mean 或 all_or_nothing，但必须版本化，并且不能由单个 Runner 临时决定。
 
 输出额外的无害字段不得自动判错。如果额外内容与 Required Field 明确矛盾，应标记为 conflict，并按照版本化规则处理。
+
+如果任何 Required Field 最终处于 unresolved 或 uncertain，则整个 Item 的 item_score = null，直到完成 Adjudication。unresolved 不得偷偷当成 0；0 表示已确定回答错误，null 表示当前尚无法形成可信评分。
 
 ## 23. LLM Judge Policy
 
@@ -590,6 +668,24 @@ rubric_version
 
 Judge 输入只包含完成判断所需的内容，例如 Question、Canonical Ground Truth / Rubric 和 Model Answer。
 
+### 23.1 Judge Score Mapping
+
+在确定使用 LLM Judge 且没有其他未解决冲突时，Judge Result 与 Judge Score 的映射为：
+
+~~~text
+Judge Result = correct
+→ judge_score = 1
+
+Judge Result = incorrect
+→ judge_score = 0
+
+Judge Result = uncertain / invalid
+→ judge_score = null
+evaluation_status = needs_review
+~~~
+
+Judge Score = null 表示当前尚无法形成可信评分，不得自动算作 0 或 1，也不能进入 Complete Official Aggregation。需要 Human Adjudication 或后续正式定义的 Judge Resolution Policy；具体采用哪种策略保持 TBD。
+
 ## 24. LLM Judge Output 与不确定性
 
 Judge 应输出结构化结果，例如：
@@ -612,7 +708,7 @@ reason_code
 - 返回 uncertain；
 - 多次 Judge 结果严重不一致；
 
-则不得静默判为正确，应进入 needs_review。具体 Judge Retry、多 Judge 聚合和 Human Adjudication 策略保留 TBD。
+则不得静默判为正确，应进入 needs_review，并按 23.1 使用 judge_score = null。具体 Judge Retry、多 Judge 聚合和 Human Adjudication 策略保留 TBD。
 
 ## 25. Rule-first / Judge-last
 
@@ -710,6 +806,46 @@ is_fully_correct（如适用）
 
 item_score 描述该 Item 在指定 Evaluator Version 下的结果，不应写回 Canonical Benchmark Item。
 
+### 29.1 Score Availability Principle
+
+必须区分“已确定为错误的 0 分”和“当前无法形成可信评分的 null 分”：
+
+| 情况 | Inference / Evaluation 条件 | item_score | 是否进入 Official denominator |
+| --- | --- | --- | --- |
+| 模型内容错误 | Inference 正常完成，题目有效，但答案错误或无法作为正确答案使用 | 0 | 是 |
+| Infrastructure / Runtime Failure | 允许的 Infrastructure Retry 后仍未产生有效 Model Response | null | 否 |
+| Unsupported | 模型或输入能力不支持该 Item，例如 Text-only Model 对 T3 | null | 否 |
+| Unresolved Judge | Judge 返回 uncertain / invalid 或结果尚未完成 Adjudication | null | 否 |
+
+以下情况在题目有效且 inference_status = success 时属于模型内容结果，默认 item_score = 0，并进入官方分母：
+
+- wrong answer；
+- invalid_format；
+- no_answer；
+- ambiguous_parse；
+- refusal；
+- conflicting answer。
+
+不能因为模型输出不好而把这些 Item 从 denominator 中删除。
+
+以下情况在允许的 Infrastructure Retry 后仍失败时使用 item_score = null：
+
+- timeout；
+- network failure；
+- HTTP 5xx；
+- provider failure；
+- adapter failure；
+- asset delivery failure。
+
+null 表示当前无法形成可信评分，不表示模型知识错误。Official v0.1 Baseline Policy 规定：存在未解决 Runtime Error 的 Run 不允许发布 Complete Official Score；可以输出明确标记为 partial 的 Diagnostic Score。
+
+此时 Run 应明确记录：
+
+~~~text
+run_status = partial
+run_completeness = partial
+~~~
+
 ## 30. Primary Track Score
 
 T1、T2、T3 每个 Track 的默认分数为 Item-level Mean：
@@ -734,6 +870,37 @@ item_count
 
 不允许只报告分数而隐藏样本量、Unsupported Item 数量或有效评测覆盖范围。
 
+### 30.1 Official Denominator
+
+Track Score 的 Official denominator 包含所有题目有效且 Inference 正常完成的内容结果：
+
+- correct；
+- incorrect；
+- invalid_format；
+- no_answer；
+- ambiguous_parse；
+- refusal；
+- conflicting answer。
+
+其中内容错误的 Item Score 为 0，不因模型表现差而过滤。
+
+Official denominator 不包含：
+
+- runtime_error；
+- unsupported；
+- unresolved Judge result。
+
+但只要存在这些尚未解决、不能评分的 Item，Run 默认不能标记为 Complete Official Run。Report 至少应说明：
+
+~~~text
+total_item_count
+scored_item_count
+runtime_error_count
+unsupported_count
+unresolved_count
+invalid_output_count
+~~~
+
 ## 31. Overall Score
 
 Mechanical Industry General Benchmark 是 General Benchmark。因此 Evaluation Specification v0.1 的 Baseline Scoring Policy 正式采用三个 Primary Track 的等权 Macro Average：
@@ -753,7 +920,7 @@ Pilot Phase 6 可以根据实证结果重新评估该策略，但任何修改必
 
 ## 32. Overall Score Eligibility
 
-只有三个 Track 都成功完成官方评测时，才报告：
+只有三个 Track 都成功完成官方评测，且本次 Run 没有未解决的 Runtime Error 或 unresolved Judge result 时，才报告：
 
 ~~~text
 MIGB Overall Score
@@ -762,6 +929,8 @@ MIGB Overall Score
 如果 T3 Unsupported，则 Overall = N/A。不能把 (T1 + T2) / 2 仍命名为 MIGB Overall。
 
 如果某个 Track 因 Run Invalid、Infrastructure Failure 或 Coverage 不足而无法形成可解释的官方分数，应报告不完整状态和原因，而不是补算一个看似完整的 Overall。
+
+存在 runtime_error、unsupported 或 unresolved Judge result 时，可以输出 Partial / Diagnostic Metrics，但必须明确标记 run_status = partial 和 run_completeness = partial，不能标成 Official Complete Result。
 
 ## 33. Slice Metrics
 
@@ -817,6 +986,17 @@ Evaluation Report 建议支持 95% confidence interval。候选方法包括：
 bootstrap over items
 ~~~
 
+Parameterised Item、同一 Formula Template 或同一 Source Document Family 中的题目可能存在统计相关性，简单按 Item Bootstrap 可能低估不确定性。Pilot 阶段需要研究 Bootstrap Sampling Unit 是否应该是：
+
+~~~text
+item
+template
+source family
+cluster
+~~~
+
+当前不预先确定 Sampling Unit 或最终 CI 方法。
+
 在 v0.1 中，CI 为 Recommended / TBD：
 
 - 最终 CI 算法留待 Pilot Phase 确认；
@@ -834,13 +1014,17 @@ bootstrap over items
 - 拒答；
 - 答案明显不符合题目要求且无法可靠归一化。
 
-但 API / Infrastructure Error 不能自动当成模型知识错误。此类情况应记录：
+这些情况要求 inference_status = success，属于模型正常完成 Inference 后的内容结果，并进入 Official denominator。
+
+API / Infrastructure Error 不能自动当成模型知识错误。此类情况应记录：
 
 ~~~text
+inference_status = runtime_error
+parse_status = not_applicable
 runtime_error
 ~~~
 
-并根据 Run Policy 决定 Infrastructure Retry、使 Run Invalid 或保留 Partial Run。系统故障不得被静默计入模型能力错误。
+经过允许的 Infrastructure Retry 后仍失败时，item_score = null，不进入 Official denominator，并根据 Run Policy 使 Run Invalid 或保留 Partial Run。系统故障不得被静默计入模型能力错误，也不得使用 item_score = 0 表示 Runtime Failure。
 
 ## 37. Retry Policy
 
@@ -883,9 +1067,14 @@ evaluation_result:
   item_revision
   dataset_version
 
+  inference_status
   raw_response
-  parsed_answer
+
   parse_status
+  parsed_answer
+
+  parser_id
+  parser_version
 
   evaluator_id
   evaluator_version
@@ -894,6 +1083,10 @@ evaluation_result:
   is_fully_correct
 
   error_category
+  judge_model
+  judge_model_version
+  judge_prompt_version
+  rubric_version
   judge_result
 
   latency
@@ -901,6 +1094,17 @@ evaluation_result:
 
   timestamp
 ~~~
+
+Evaluation Result 的状态约束为：
+
+~~~text
+if inference_status != success:
+  parsed_answer = null
+  parse_status = not_applicable
+  item_score = null
+~~~
+
+除非未来某个特殊 Evaluation Profile 明确定义其他行为，以上约束适用于 v0.1。inference_status = success 时，parse_status 才可以是 parsed、invalid_format、no_answer 或 ambiguous_parse。
 
 latency 和 usage 属于运行信息，不进入能力 Score。不同 Provider 无法提供 token usage 时可以为空，但必须避免把“未知”误记为零。
 
@@ -930,15 +1134,30 @@ Evaluator ID / Version 必须进入 Evaluation Result。评分算法更新后，
 
 ## 41. Prompt / Adapter / Evaluator Versioning
 
-Evaluation Run 至少能够追踪：
+Evaluation Run 至少能够明确记录：
 
 ~~~text
+evaluation_profile_id
 evaluation_profile_version
+model_adapter_id
 model_adapter_version
+prompt_template_id
 prompt_template_version
+generation_config
+runtime_environment
+~~~
+
+Evaluation Result 至少能够明确记录：
+
+~~~text
+parser_id
 parser_version
+evaluator_id
 evaluator_version
-judge_version（如有）
+judge_model（如有）
+judge_model_version（如有）
+judge_prompt_version（如有）
+rubric_version（如有）
 ~~~
 
 同一 Dataset 使用不同 Prompt Policy、Adapter 或 Evaluator 跑出的成绩，不得默认视为严格可比。比较时必须同时报告版本差异。
@@ -1108,6 +1327,11 @@ scoring instability
 14. 是否为 Model Self-consistency 建立独立 Experiment Profile？—— TBD
 15. Official Leaderboard 是否允许 Closed API 与 Open-weight 模型同榜？—— TBD
 16. Evaluation Run Invalid / Partial 的正式判定规则是什么？—— TBD
+17. Official Run 是否允许少量 unresolved runtime errors 后仍发布正式分数？允许比例是多少？—— TBD
+18. Numeric Item 的 numeric_unit_policy 是否需要进一步扩展？—— TBD
+19. LLM Judge uncertain 最终采用 Human Adjudication、Multi-judge 还是其他策略？—— TBD
+20. Confidence Interval 是否需要采用 template/source-aware cluster bootstrap，而不是简单 item bootstrap？—— TBD
+21. Parser Registry 是否与 Evaluator Registry 分开维护？—— TBD
 
 本节问题不能被本文件的 Baseline Scoring Policy 或示例默认解释为已经解决。
 
@@ -1183,14 +1407,16 @@ Result: incorrect, Item Score = 0
 
 ~~~text
 Canonical Answer: 滚动轴承
-Accepted Alias: 滚动轴承类型
+Accepted Alias: 滚动轴承（rolling bearing）
 
-Prediction: 滚动轴承类型
+Prediction: 滚动轴承（rolling bearing）
 Result: Alias Match, Item Score = 1
 
 Prediction: 与题意无关的轴承答案
 Result: no deterministic match; score depends on the versioned fallback policy
 ~~~
+
+accepted_aliases 必须是 Ground Truth 的可接受等价表达或规范化变体，不得使用上位词、下位词、更宽泛概念或仅相关概念充当 Alias。
 
 如果进入 LLM Judge fallback，必须记录 Judge Model、Prompt Version、Rubric Version 和 Judge Result。
 
@@ -1235,7 +1461,8 @@ Parse Status: ambiguous_parse
 Item Score: 0
 
 Transport Failure: HTTP 5xx before a normal response
-Parse Status: runtime_error
+Inference Status: runtime_error
+Parse Status: not_applicable
 Handling: Infrastructure Retry or Run Policy decision
 ~~~
 
@@ -1243,7 +1470,7 @@ Transport Failure 不应被自动计入模型内容错误；正常返回的冲�
 
 ## 54. 文档状态与当前交付边界
 
-本文件当前状态为 Draft - Pending Review，Version 保持 0.1。本文件只完成 Evaluation Specification v0.1 的语义设计，不表示 Evaluation Runner、框架 Adapter、Pilot Evaluation 或正式 Leaderboard 已经实现。
+本文件当前状态为 Reviewed - Baseline，Version 保持 0.1。本文件只完成 Evaluation Specification v0.1 的语义设计，不表示 Evaluation Runner、框架 Adapter、Pilot Evaluation 或正式 Leaderboard 已经实现。
 
 本阶段不开始：
 
@@ -1269,4 +1496,5 @@ Evaluation Specification 只解释如何评测这些 Canonical 结构，不改�
 
 | 版本 | 日期 | 变更说明 |
 | --- | --- | --- |
-| v0.1 | 2026-09-11 | 建立 framework-independent Evaluation Semantics、评分规则、运行规范、结果实体、聚合策略和 Open Questions；状态保持 Draft - Pending Review |
+| v0.1 | 2026-09-11 | 建立 framework-independent Evaluation Semantics、评分规则、运行规范、结果实体、聚合策略和 Open Questions |
+| v0.1 | 2026-09-11 | 根据首次正式评审补充分层状态、0/null Score、Numeric Unit Policy 接口、Judge Resolution 规则、Run Completeness 和版本字段；状态更新为 Reviewed - Baseline |
