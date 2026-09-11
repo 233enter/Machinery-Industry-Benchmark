@@ -4,7 +4,7 @@ Current Phase: Phase 0 - Benchmark Design
 
 Current Milestone: Benchmark Design v0.1
 
-Current Task: System Architecture v0.1
+Current Task: Pilot Design v0.1
 
 ## Current Status
 
@@ -14,9 +14,10 @@ Current Task: System Architecture v0.1
 - Benchmark Taxonomy v0.1: Completed
 - Data Specification v0.1: Completed
 - Evaluation Specification v0.1: Completed
+- System Architecture v0.1: Completed
 - Current Phase: Phase 0 - Benchmark Design
 - Current Milestone: Benchmark Design v0.1
-- Current Task: System Architecture v0.1
+- Current Task: Pilot Design v0.1
 
 ## 当前进展
 
@@ -26,12 +27,13 @@ Current Task: System Architecture v0.1
 - 完成 Benchmark Taxonomy v0.1 首次正式评审后的结构性小修。
 - 完成 Data Specification v0.1 首次正式评审后的结构性小修。
 - 完成 Evaluation Specification v0.1 首次正式评审后的结构性小修。
+- 完成 System Architecture v0.1 正式评审后的小范围修订，状态为 Reviewed - Baseline。
 - 完成设计文档结构和说明占位。
 - 暂未实现 PDF 解析、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-设计 `docs/05_system_architecture.md`。
+设计 `docs/07_pilot_design.md`。
 
 ## 变更记录
 
@@ -43,3 +45,4 @@ Current Task: System Architecture v0.1
 | 2026-09-11 | Benchmark Taxonomy v0.1 完成，下一任务为 Data Specification v0.1 |
 | 2026-09-11 | Data Specification v0.1 完成，下一任务为 Evaluation Specification v0.1 |
 | 2026-09-11 | Evaluation Specification v0.1 完成，下一任务为 System Architecture v0.1 |
+| 2026-09-11 | System Architecture v0.1 完成并通过正式评审，下一任务为 Pilot Design v0.1 |

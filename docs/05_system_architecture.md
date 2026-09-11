@@ -3,7 +3,7 @@
 Project: Mechanical Industry General Benchmark
 Document: System Architecture
 Version: 0.1
-Status: Draft - Pending Review
+Status: Reviewed - Baseline
 Phase: Phase 0 - Benchmark Design
 Current Task: System Architecture v0.1
 
@@ -160,9 +160,9 @@ restartable
 
 Candidate Source Corpus 首先进入 Corpus Inventory，得到物理文件、逻辑文档、重复关系和质量统计。Source Selection 再依据 Taxonomy、覆盖、质量、权限和污染风险选择 Benchmark Source Corpus 的来源。
 
-选定来源在后续阶段经过 Parser Adapter 和 Normalizer，形成可供 Evidence Builder 使用的 Normalized Document。Evidence / Asset Construction 生成文本、公式、表格、图纸和其他视觉证据。Candidate Item Builder 再将 Evidence 转换为统一的 Canonical Candidate Benchmark Item。
+选定来源在后续阶段经过 Document Parser Adapter 和 Normalizer，形成可供 Evidence Builder 使用的 Normalized Document。Evidence / Asset Construction 生成文本、公式、表格、图纸和其他视觉证据。Candidate Item Builder 再将 Evidence 转换为统一的 Canonical Candidate Benchmark Item。
 
-Candidate Item 必须通过 Verification / QA，才能被 Dataset Assembly 纳入 Pilot Benchmark 或 Benchmark V1 Dataset。Dataset Snapshot 冻结具体 Item Revision 后，Evaluation 使用 Evaluation Profile、Model Adapter、Parser Registry 和 Evaluator Registry 形成 Evaluation Result，Reporting 从 Canonical Evaluation Result 生成统一报告。
+Candidate Item 必须通过 Verification / QA，才能被 Dataset Assembly 纳入 Pilot Benchmark 或 Benchmark V1 Dataset。Dataset Snapshot 冻结具体 Item Revision 后，Evaluation 使用 Evaluation Profile、Model Adapter、Answer Parser Registry 和 Evaluator Registry 形成 Evaluation Result，Reporting 从 Canonical Evaluation Result 生成统一报告。
 
 ## 4. MIGB Control Plane
 
@@ -182,9 +182,10 @@ Control Plane 回答：
 | --- | --- | --- |
 | Pipeline Config | 定义 Stage 行为参数、过滤条件、资源选项和策略引用 | versioned YAML / JSON |
 | Job Manifest | 描述一次重大 Pipeline Run 的输入、输出、配置、版本、状态和资源 | manifest file |
-| Version Registry | 记录 Schema、Taxonomy、Prompt、Evaluator、Adapter、Dataset 和 Report 版本 | Git 管理的版本化文件及 Manifest |
+| Version Registry | 记录 Schema、Taxonomy、Prompt、Document Parser、Answer Parser、Evaluator、Adapter、Dataset 和 Report 版本 | Git 管理的版本化文件及 Manifest |
 | Taxonomy Registry | 引用当前使用的 Benchmark Taxonomy 版本 | versioned config / registry record |
 | Prompt Template Registry | 管理 LLM 辅助构题或评测所使用的 Prompt Template 版本 | versioned template metadata |
+| Answer Parser Registry | 管理 Evaluation Answer Parser 的 parser_id、parser_version 及 answer_type / parsing policy compatibility | parser metadata；仅用于 Evaluation Answer Parsing |
 | Evaluator Registry | 管理 Answer Type / Task 对应的评分器及版本 | evaluator metadata |
 | Model Adapter Registry | 管理模型接口、输入能力和 Adapter 版本 | adapter metadata |
 | Dataset Registry | 管理 Candidate Pool、Pilot Benchmark、Benchmark V1 Snapshot 的版本和 Manifest | dataset manifest / registry record |
@@ -206,6 +207,8 @@ Git metadata
 
 Dataset Registry、Source Registry 和各类 Registry Record 可以作为 Artifact 保存，但不能让数据库成为 V1 唯一的 Source of Truth。
 
+这里的 Answer Parser Registry 是 Evaluation 侧的逻辑 Registry，不是 PDF / Document Processing 使用的 Document Parser Adapter Registry。Evaluation Specification 中关于 Answer Parser Registry 与 Evaluator Registry 是否分开物理维护的决策仍保持 TBD；System Architecture 只要求逻辑上能够追踪 parser_id、parser_version 以及与 answer_type / parsing policy 的兼容关系。
+
 ## 5. MIGB Data Plane
 
 Data Plane 至少包含以下模块。下表中的 Idempotency expectation 描述语义要求，不代表当前已经实现。
@@ -214,7 +217,7 @@ Data Plane 至少包含以下模块。下表中的 Idempotency expectation 描�
 | --- | --- | --- | --- | --- | --- | --- |
 | A. Corpus Inventory | 扫描 Candidate Source Corpus，建立文件、文档、重复和错误画像 | Candidate Source Corpus、Inventory Config | Corpus Inventory、File Instance Registry、Duplicate Groups、Error Registry、Statistics、Representative Sample Manifest | 单个 File Instance；运行级错误单独记录 | 相同文件引用、哈希和配置不应重复产生冲突记录 | Phase 1 |
 | B. Source Selection | 根据质量、覆盖、权限和污染风险选择 Benchmark Source Corpus | Corpus Inventory、Taxonomy、Sample Manifest、Selection Config | Benchmark Source Corpus Registry、Exclusion Registry、Coverage Matrix | 单个 Source Document 或 Selection Batch | Selection 输出通过版本和输入 Manifest 固定 | Phase 2 |
-| C. Document Processing | 对已选择来源执行 Parser、OCR、Layout 和 Normalization | Selected Source、Parser Config、Parser Adapter | Raw Parser Artifact、Normalized Document Artifact、Processing Manifest | 单个 Document | 同一来源、Parser Version 和 Config 可复用或重建相同语义结果 | Phase 3 |
+| C. Document Processing | 对已选择来源执行 Document Parser、OCR、Layout 和 Normalization | Selected Source、Document Parser Config、Document Parser Adapter | Raw Parser Artifact、Normalized Document Artifact、Processing Manifest | 单个 Document | 同一来源、Document Parser Version 和 Config 可复用或重建相同语义结果 | Phase 3 |
 | D. Evidence / Asset Construction | 从 Normalized Document 构建 Source Evidence 和 Visual Asset | Normalized Document、Evidence Config | Evidence Records、Asset Records、Asset Manifest | 单个 Evidence 或 Asset；源文档不因局部失败而丢失 | Evidence / Asset ID 和输入引用稳定，Transformation 可重放 | Phase 3 |
 | E. Benchmark Item Construction | 按 Track Builder 构建统一的 Candidate Item | Evidence、Taxonomy、Generation Config、构题规则 | Canonical Candidate Benchmark Item、Construction Metadata | 单个 Item Revision | 同一输入、配置和生成版本尽量复用；非确定生成必须保留 Raw Output | Phase 4 |
 | F. Verification / QA | 运行 Schema、Source、Ground Truth、Calculation、Duplicate、Contamination 和人工检查 | Item Revision、Evidence、Verification Config | Verification Records、QA Issue、Review Queue Manifest | 单个 Item / Revision 或单个检查 | 每种检查按版本写入独立 Record，不静默覆盖 Item | Phase 5 |
@@ -282,6 +285,51 @@ created_at
 上述是架构层的审计要求，不替换 Data Specification 对 Canonical Benchmark Item、Source Evidence、Ground Truth 和 Dataset Membership 的规范。
 
 任何被跳过、失败、替代或撤回的 Artifact，都必须在对应 Error Registry、Verification Record、Membership Record 或 Manifest 中留下可解释的状态。
+
+### 6.3 Artifact Immutability and Lineage
+
+Canonical Pipeline Artifact 默认采用：
+
+~~~text
+append / version / supersede
+~~~
+
+而不是 silent in-place overwrite。尤其适用于：
+
+- Normalized Document；
+- Evidence Record；
+- Visual Asset metadata；
+- Candidate Item Revision；
+- Verification Record；
+- Dataset Snapshot；
+- Evaluation Result；
+- Run Manifest。
+
+如果内容发生实质改变，应创建新的 Artifact Version、新的 Item Revision、新的 Dataset Version 或新的 Evaluation Run，具体取决于变化所在的实体。历史引用必须继续解析到历史 Artifact，不能因后续修订而静默漂移。
+
+允许原地删除或覆盖的主要对象是：
+
+~~~text
+cache
+temporary workspace
+rebuildable intermediate scratch data
+~~~
+
+但即使 Cache 被删除，也必须能够从 Canonical Input、Config 和 Tool Version 重建结果。Cache != Source of Truth。
+
+### 6.4 Artifact Lineage
+
+source_or_input_refs 是本 System Architecture 采用的 Canonical Lineage Reference 字段。它用于形成：
+
+~~~text
+Output Artifact
+→ Input Artifact(s)
+→ Source / Previous Stage
+~~~
+
+的 Lineage，回答“这个 Evidence、Item 或 Result 是由什么输入和哪个 Job 产生的”。本架构不再另设一个与 source_or_input_refs 完全重复的 parent_artifact_refs[] 字段。需要追踪的上游 Artifact、Source Document、前一 Stage 输出和相关 Job，应统一通过 source_or_input_refs 及其对应的 Manifest 引用表达。
+
+Lineage 引用必须随 Artifact Version、Item Revision、Dataset Version 和 Evaluation Run 一起保留。删除 Cache 或临时中间文件不能破坏 Canonical Artifact 对其输入和生成过程的可解释性。
 
 ## 7. External Data Root
 
@@ -410,12 +458,42 @@ CorpusFileInstance
   file_size
   scan_status
   inventory_status
-  document_id
+  document_id                 # null / provisional / resolved
+  document_family_id          # null / partial / resolved
 ~~~
 
 CorpusFileInstance 是 Inventory 的运行实体，不是 Benchmark Item Data Specification 的一部分。
 
-路径不能作为稳定的 document_id。Document Identification 需要结合：
+### 9.2 Document Identity Resolution
+
+Physical File Instance 发现、Logical Source Document 识别和 document-family 关联是不同步骤。建议采用以下逻辑流程：
+
+~~~text
+Physical File Discovery
+        ↓
+file_instance_id
+        ↓
+File Hash / Metadata / Exact Duplicate Analysis
+        ↓
+Logical Document Resolution
+        ↓
+document_id
+        ↓
+Document-family Resolution
+        ↓
+document_family_id
+~~~
+
+规则如下：
+
+- 发现一个 Physical File Instance 后即可稳定分配 file_instance_id；
+- document_id 只有在完成必要的 Logical Document Resolution 后才视为 resolved；
+- 早期 Inventory Record 允许 document_id = null 或 provisional，不得为了填字段而默认 1 PDF File = 1 Logical Document；
+- document_family_id 比 document_id 更高层，Phase 1 可以只完成部分 family resolution；
+- document-family Resolution 通常需要综合 metadata、edition、hash、similarity、filename / title 和 sample inspection；
+- document_id 不等于 file_hash，也不因文件路径变化而改变。
+
+路径不能作为稳定的 document_id。Logical Document Resolution 需要结合：
 
 - content hash；
 - document metadata；
@@ -428,7 +506,7 @@ CorpusFileInstance 是 Inventory 的运行实体，不是 Benchmark Item Data Sp
 
 document-family_id 用于关联版本、扫描版 / 文本版、同一资料不同来源和高度重复资料。
 
-### 9.2 Phase 1 Light Inventory
+### 9.3 Phase 1 Light Inventory
 
 Phase 1 默认禁止：
 
@@ -468,7 +546,7 @@ Representative Sample 用于在 Phase 3 正式大规模解析前验证：
 - Text PDF；
 - Long documents。
 
-Parser 技术选型必须先通过 Representative Sample 验证，不能在没有样本 QA 的情况下直接对整个 Benchmark Source Corpus 做高成本解析。
+Document Parser 技术选型必须先通过 Representative Sample 验证，不能在没有样本 QA 的情况下直接对整个 Benchmark Source Corpus 做高成本解析。
 
 ## 10. Source Selection Architecture
 
@@ -508,23 +586,23 @@ Selection 需要支持以下维度：
 Phase 3 的 Parser 架构必须采用 Adapter Boundary：
 
 ~~~text
-                 Parser Adapter Interface
+            Document Parser Adapter Interface
                     /           \
                 MinerU         Future Parser
                     \           /
                 Normalized Document
 ~~~
 
-MinerU 可以是首选候选工具，但 Canonical downstream 不允许依赖 MinerU 私有输出格式。Parser Adapter 至少要负责将不同 Parser 的原始结果转换到系统可接受的内部接口。
+MinerU 可以是首选候选工具，但 Canonical downstream 不允许依赖 MinerU 私有输出格式。Document Parser Adapter 至少要负责将不同 Document Parser 的原始结果转换到系统可接受的内部接口。
 
 ### 11.1 Raw Parser Artifact 与 Normalized Artifact
 
 系统必须同时区分：
 
-- Raw Parser Artifact：Parser 原始 JSON、Markdown、Layout Objects、OCR Objects 等；
+- Raw Parser Artifact：Document Parser 原始 JSON、Markdown、Layout Objects、OCR Objects 等；
 - Normalized Document Artifact：经 Normalizer 转换后供下游使用的稳定逻辑模型。
 
-下游 Evidence Builder 只依赖 Normalized Document，不直接读取某个 Parser 的私有格式。保留 Raw Parser Artifact 用于问题排查、Parser 对比和未来重新 Normalization。
+下游 Evidence Builder 只依赖 Normalized Document，不直接读取某个 Document Parser 的私有格式。保留 Raw Parser Artifact 用于问题排查、Document Parser 对比和未来重新 Normalization。
 
 ### 11.2 Normalized Document Model
 
@@ -560,6 +638,17 @@ parser_provenance
 ~~~
 
 Normalized Document Model 不与 Canonical Benchmark Item Schema 合并为一个对象。
+
+### 11.3 Document Parser 与 Answer Parser 的命名边界
+
+本架构明确区分两个不同组件：
+
+| 名称 | 作用 | 典型阶段 | 版本追踪方式 |
+| --- | --- | --- | --- |
+| Document Parser Adapter | 处理 PDF / Document，输出 Raw Parser Artifact 和 Normalized Document | Phase 3 - Corpus Processing | Document Parser ID / Version、Tool Versions |
+| Answer Parser Registry | 处理模型 Response，按 Evaluation Policy 提取 Parsed Answer 和 Parse Status | Phase 6 / Phase 8 - Evaluation | parser_id / parser_version、answer_type / parsing policy compatibility |
+
+两者不是同一个组件，也不共享隐含的注册或版本语义。Evaluation 侧只通过 Answer Parser Registry 追踪 parser_id / parser_version；PDF / Document Processing 侧使用 Document Parser Adapter。Evaluation Specification 对 Answer Parser Registry 与 Evaluator Registry 是否分开物理维护的决策仍保持 TBD。
 
 ## 12. Evidence / Asset Architecture
 
@@ -938,7 +1027,7 @@ Inference Backend
        ↓
 Canonical Response
        ↓
-Parser Registry
+Answer Parser Registry
        ↓
 Evaluator Registry
        ↓
@@ -957,7 +1046,7 @@ Report
 | Evaluation Profile Loader | Evaluation Profile、Evaluation Specification Version | Prompt、Decoding、输入和评分引用 | 不在运行时隐式改变官方规则 |
 | Model Adapter | Model metadata、输入题目和 Asset | 规范化请求及模型 Response | 不查看 Ground Truth，不把模型差异隐藏为题目差异 |
 | Inference Backend | Adapter request | Raw Model Response、运行状态 | 正常错误与基础设施错误分开记录 |
-| Answer Parser | Model Response、Parser Version | Parse Status、Parsed Answer | 只提取和规范化，不替模型修答案 |
+| Answer Parser | Model Response、Answer Parser Version | Parse Status、Parsed Answer | 只提取和规范化，不替模型修答案 |
 | Evaluator | Parsed Answer、Canonical Ground Truth、Evaluator Version | Item Score、正确性和错误类别 | 遵循 Evaluation Specification，不静默重算历史 Result |
 | Aggregator | Item-level Evaluation Result | Track、Domain、Capability、Difficulty、Overall 等汇总 | 使用批准的聚合语义，保留原始结果 |
 | Report Builder | Canonical Evaluation Result、Report Config | 报告和诊断视图 | Report 不是唯一结果来源 |
@@ -980,12 +1069,17 @@ evaluator_version
 item_score
 is_fully_correct
 error_category
+judge_result
 judge_model（如有）
 judge_model_version（如有）
+judge_prompt_version（如有）
+rubric_version（如有）
 latency
 usage
 timestamp
 ~~~
+
+Evaluation Specification 是 Evaluation Result 语义的权威来源；System Architecture 只负责存储和连接这些字段。Judge 相关字段均为 Conditional，本文件不重新定义 Judge Scoring Semantics，具体语义直接引用 Evaluation Specification。
 
 如果 Inference 没有成功，必须按照 Evaluation Specification 的约束记录 Parsed Answer、Parse Status 和 Item Score 的不可用状态。Latency 和 Usage 属于运行信息，不进入能力 Score。
 
@@ -1189,7 +1283,7 @@ Pipeline 不允许 silent failure。任何被跳过、延后或排除的数据�
 可以支持 content-aware cache。例如：
 
 ~~~text
-PDF hash + Parser Version + Config
+PDF hash + Document Parser Version + Config
 ~~~
 
 可以作为解析缓存的候选键。但 Cache 不属于 Canonical Source of Truth，必须可以删除 Cache 后重新构建结果。
@@ -1299,7 +1393,7 @@ src/
 
 其中 adapters/ 可以进一步承担：
 
-- Parser Adapters；
+- Document Parser Adapters；
 - LLM Adapters；
 - Evaluation Framework Adapters。
 
@@ -1333,7 +1427,7 @@ Tests 至少应覆盖：
 | Phase 0 - Benchmark Design | Architecture baseline、三 Plane、Artifact Contract、版本和 Manifest 原则、Storage baseline、未来模块边界 |
 | Phase 1 - Corpus Inventory | Corpus Scanner、Inventory Store、Duplicate Detector、Representative Sampler |
 | Phase 2 - Taxonomy Calibration & Source Selection | Source Registry、Coverage Analyzer、Training Exclusion Manifest、Source Quality Metadata |
-| Phase 3 - Corpus Processing | Parser Adapter、Normalizer、Evidence Builder、Asset Store |
+| Phase 3 - Corpus Processing | Document Parser Adapter、Normalizer、Evidence Builder、Asset Store |
 | Phase 4 - Question Construction & Ground Truth | Candidate Builders、Formula / Calculation Pipeline、Generation Adapter、Prompt Template Registry |
 | Phase 5 - Quality Control & Pilot Benchmark | Verification Pipeline、QA、Human Review Queue、Pilot Assembler、最小 Evaluation Runner 准备 |
 | Phase 6 - Model Validation & Calibration | Minimal Evaluation Runner、Result Store、Calibration Analysis、多个能力层级模型运行条件 |
@@ -1348,11 +1442,11 @@ Tests 至少应覆盖：
 
 ### Architecture Gate A
 
-Phase 1 Inventory Pipeline 验证完成后，才设计大规模 Parser Execution。验证内容至少包括文件识别、Inventory Contract、错误处理、重复关系和 Representative Sample Manifest 是否可用。
+Phase 1 Inventory Pipeline 验证完成后，才批准并实施大规模 Document Parser Execution。验证内容至少包括文件识别、Inventory Contract、错误处理、重复关系和 Representative Sample Manifest 是否可用。
 
 ### Architecture Gate B
 
-Representative Sample Parser QA 通过后，才允许批量解析 Benchmark Source Corpus。Parser、OCR、Table、Formula、Drawing、Scan PDF、Text PDF 和长文档的适用性必须有可审计证据。
+Representative Sample Document Parser QA 通过后，才允许批量解析 Benchmark Source Corpus。Document Parser、OCR、Table、Formula、Drawing、Scan PDF、Text PDF 和长文档的适用性必须有可审计证据。
 
 ### Architecture Gate C
 
@@ -1360,7 +1454,7 @@ Canonical Candidate Benchmark Item 与 Verification Pipeline 可以运行后，�
 
 ### Architecture Gate D
 
-Pilot Evaluation Runner Conformance 通过后，才运行多个 Baseline / Anchor Models。Conformance 至少要覆盖 Dataset Snapshot 绑定、Canonical Response、Parser、Evaluator、Result Contract 和异常处理。
+Pilot Evaluation Runner Conformance 通过后，才运行多个 Baseline / Anchor Models。Conformance 至少要覆盖 Dataset Snapshot 绑定、Canonical Response、Answer Parser、Evaluator、Result Contract 和异常处理。
 
 ## 30. Resource Dependency
 
@@ -1441,7 +1535,7 @@ Distributed only if justified
 | Evaluation Results | Parquet | Proposed Baseline |
 | Binary Assets | Filesystem / Object Storage abstraction | Baseline |
 | Analytics | DuckDB | Recommended Candidate |
-| PDF Parser | Adapter-based, MinerU candidate | TBD |
+| Document Parser | Adapter-based, MinerU candidate | TBD |
 | Evaluation Framework | Adapter-based | TBD |
 | Workflow Engine | CLI / Batch first | Baseline |
 | Database | Not required initially | Baseline |
@@ -1455,7 +1549,7 @@ Distributed only if justified
 ~~~text
 ADR-001 Batch-first architecture
 ADR-002 Canonical storage strategy
-ADR-003 Parser selection
+ADR-003 Document Parser selection
 ADR-004 Evaluation backend strategy
 ~~~
 
@@ -1480,6 +1574,10 @@ ADR 至少应说明背景、候选方案、决策、影响、依赖和变更原�
 13. Dataset Registry 是否需要签名 / checksum manifest？—— TBD
 14. Benchmark Release Build 是否强制 clean Git workspace？—— TBD
 15. Data backup / disaster recovery 策略是什么？—— TBD
+16. document_id 的 Logical Document Resolution / Entity Resolution 算法最终采用什么策略？—— TBD
+17. Canonical Artifact 的长期 Retention / Garbage Collection / Archive 策略是什么？—— TBD
+
+Cache 清理和 Canonical Artifact Retention 是两回事。Cache 可以按可重建性清理，但 Canonical Artifact 的长期保留、归档和回收策略仍须单独决定。
 
 ## 37. End-to-End Conceptual Example
 
@@ -1505,9 +1603,9 @@ Selected Source
   source_registry_version = source-v0.1
   selection_status = selected
   ↓
-Parser Raw Output
-  parser_id = parser-candidate
-  parser_version = ...
+Document Parser Raw Output
+  document_parser_id = parser-candidate
+  document_parser_version = ...
   ↓
 Normalized Document
   normalization_version = norm-v0.1
@@ -1563,12 +1661,12 @@ T2 / Domain / Overall Report
 
 ~~~text
 Version: 0.1
-Status: Draft - Pending Review
+Status: Reviewed - Baseline
 Phase: Phase 0 - Benchmark Design
 Current Task: System Architecture v0.1
 ~~~
 
-本次交付只完成 System Architecture v0.1 的设计说明，尚未实现：
+本次交付完成 System Architecture v0.1 的设计说明及正式评审后的小范围修订，尚未实现：
 
 - Corpus Inventory；
 - Parser 或 Normalizer；
@@ -1579,7 +1677,7 @@ Current Task: System Architecture v0.1
 - Pilot Benchmark；
 - Reporting Service。
 
-System Architecture 需要先经过人工评审。评审通过前，不应把当前文档解释为已完成后续阶段的工程实现，也不应将 Current Task 推进到下一个设计主题。
+本次评审结论为小修后通过，当前文档作为 Reviewed - Baseline 使用。但这不表示后续阶段的工程实现已经完成，也不表示已经开始 Pilot Design 或其他数据、模型和评测实现工作。
 
 ## 39. Repository Hygiene 与检查要求
 
@@ -1607,3 +1705,4 @@ git diff --check
 | 版本 | 日期 | 变更说明 |
 | --- | --- | --- |
 | v0.1 | 2026-09-11 | 将系统架构占位结构扩展为 Offline Batch-first、Modular Pipeline、Contract-driven Artifacts 基线，补充三 Plane、数据流、存储、组件边界、版本与运行机制、资源依赖、架构 Gate 和 Open Questions；保持 Draft - Pending Review |
+| v0.1 | 2026-09-11 | 根据正式评审完成 Evaluation Result、Answer Parser Registry、Document Identity Resolution、Artifact Immutability / Lineage 和 Architecture Gate A 等小范围修订，Status 更新为 Reviewed - Baseline |
