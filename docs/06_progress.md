@@ -1,12 +1,12 @@
 # 项目进度
 
-Current Phase: Phase 1 - Corpus Inventory
+Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
-Current Milestone: Corpus Inventory v0.1
+Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Candidate Source Corpus Scope Confirmation
+Current Task: Phase 2 Taxonomy Calibration Design
 
-Next Task: Confirm project-wide Candidate Source Corpus scope and complete Phase 1 Gate Review before authorizing Phase 2 Taxonomy Calibration & Source Selection.
+Next Task: Design the Phase 2 taxonomy calibration and source selection workflow using the completed Full Corpus Inventory.
 
 ## Current Status
 
@@ -18,8 +18,8 @@ Next Task: Confirm project-wide Candidate Source Corpus scope and complete Phase
 - Evaluation Specification v0.1: Completed
 - System Architecture v0.1: Completed
 - Pilot Design v0.1: Completed
-- Current Phase: Phase 1 - Corpus Inventory
-- Current Milestone: Corpus Inventory v0.1
+- Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
+- Current Milestone: Source Corpus Calibration v0.1
 - D3 Scale Test: Passed。
 - D3 Gate: Passed。
 - Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory。
@@ -27,8 +27,12 @@ Next Task: Confirm project-wide Candidate Source Corpus scope and complete Phase
 - Full Inventory Artifact Validation: Passed；Source Snapshot 一致，D1/D2/D3 历史 Artifact 保持不变。
 - `cmes_journal` Full Inventory Gate: Passed。
 - Phase 1 Inventory Engineering Gate: Passed。
-- Project-wide Phase 1 Closeout: Pending Candidate Source Corpus Scope Confirmation。
-- Current Task: Candidate Source Corpus Scope Confirmation
+- Project-wide Phase 1 Closeout: Passed；Gate 1: Passed；Phase 1 - Corpus Inventory: Closed。
+- Candidate Source Corpus Scope: Confirmed as `cmes_journal` only；authoritative count `60454 PDFs`。
+- Full Inventory: PASS。
+- Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
+- Current Milestone: Source Corpus Calibration v0.1
+- Current Task: Phase 2 Taxonomy Calibration Design
 
 ## 当前进展
 
@@ -63,12 +67,14 @@ Next Task: Confirm project-wide Candidate Source Corpus scope and complete Phase
 - 完成 Remote Full Corpus Inventory：60,454 个文件全量选择并处理，60447 success、7 partial、0 failed；报告见 `reports/phase1/full_inventory_report.md`。
 - Full Run 完成 Artifact Validation；MinerU、OCR、LLM 或 GPU workload 仍未执行。
 - 完成只读 Source Scope Discovery：`/mnt/data_nfs/dataset/original/cmes` 下仅观察到 `journal`；在 `/mnt/data_nfs/dataset/original` 下观察到四个 `books_*` Source Candidate 及一个混合 `all_pipeline` 工作区。
-- 四个 `books_*` 目录合计观察到 2269 个 PDF，但是否属于项目 Candidate Source Corpus 仍为 TBD；项目级 Phase 1 Closeout 暂缓。
+- 经项目 Owner 确认，四个 `books_*` 目录属于 Observed external / adjacent source data，不属于当前 MIGB Candidate Source Corpus；`all_pipeline` 继续不是 Candidate Source Corpus。
+- 完成 Phase 1 Gate Review：Candidate Source Corpus Scope Confirmed as `cmes_journal` only；Gate 1: Passed；Phase 1 - Corpus Inventory: Closed。
+- 项目状态切换至 Phase 2 - Taxonomy Calibration & Source Selection；本次未执行任何 Phase 2 实际工作。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Confirm project-wide Candidate Source Corpus scope and complete Phase 1 Gate Review before authorizing Phase 2 Taxonomy Calibration & Source Selection.
+Design the Phase 2 taxonomy calibration and source selection workflow using the completed Full Corpus Inventory.
 
 ## 变更记录
 
@@ -94,3 +100,4 @@ Confirm project-wide Candidate Source Corpus scope and complete Phase 1 Gate Rev
 | 2026-09-14 | D3 Scale Test 和 D3 Gate 通过；Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory；下一任务为 Full Corpus Inventory |
 | 2026-09-14 | Full Corpus Inventory 完成并通过 Artifact Validation：60454/60454 processed，60447 success、7 partial、0 failed，Full Verdict: PASS；下一任务为 Full Corpus Inventory Artifact Review |
 | 2026-09-14 | `cmes_journal` Full Inventory Gate 和 Phase 1 Inventory Engineering Gate 通过；只读 Source Scope Discovery 发现四个 `books_*` 目录及一个混合 `all_pipeline` 工作区，项目级 Phase 1 Closeout Pending Scope Confirmation；下一任务为 Candidate Source Corpus Scope Confirmation |
+| 2026-09-14 | 项目 Owner 确认 `cmes_journal` / 60454 PDFs 是当前 MIGB 完整 Candidate Source Corpus；`books_*` 不纳入，`all_pipeline` 不是 Candidate Source Corpus；Gate 1: Passed，Phase 1 Closed；项目切换至 Phase 2 Taxonomy Calibration & Source Selection，下一任务为 Phase 2 Taxonomy Calibration Design |
