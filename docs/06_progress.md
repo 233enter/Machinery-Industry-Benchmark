@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: D3 Scale Test
+Current Task: D3 Scale Test Artifact Review
 
 ## Current Status
 
@@ -18,7 +18,7 @@ Current Task: D3 Scale Test
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: D3 Scale Test
+- Current Task: D3 Scale Test Artifact Review
 
 ## 当前进展
 
@@ -45,12 +45,17 @@ Current Task: D3 Scale Test
 - 完成 Remote D2：Run ID 为 `d2-20260914T062102Z-18a5aad`，目标 200、实际 198，195 success、3 partial、0 failed；D1 样本 20 个全部排除。
 - 完成 D2 六个 Artifact 的远程校验及 Mac 临时复核；确定性采样、Schema、Manifest、Source Consistency 及 D1 Artifact 不变性均通过，D2 Verdict: PASS；报告见 `reports/phase1/d2_representative_dryrun_report.md`。
 - D2 Representative Dry-run: Passed；D2 Gate: Passed。
-- 未执行 D3、Full Inventory、MinerU、OCR、LLM 或 GPU workload。
+- 完成 D3 实现与 Local/Remote Unit Test：38 passed；D3 commit 为 `ba05b05`。
+- 完成 D2 三个 `zero_page_count` PDF 的只读 Audit；PyMuPDF 结果可重复，未修改 PDF 或 D2 Artifact。
+- 完成 Remote D3 Scale Test：目标 1000、实际 1000，1000 success、0 partial、0 failed；worker count=4、`dirty=false`。
+- D3 受控停止与 resume 通过：初次 `completed_count=300`，同一 Run ID resume 后 `checkpoint_reused_count=300`，最终 `run_status=completed`。
+- D3 六个 Canonical Artifact、Schema、Source Provenance、D1/D2 排除、Source Consistency 和 Artifact checksum 校验通过；D3 Verdict: PASS；报告见 `reports/phase1/d3_scale_test_report.md`。
+- 未执行 Full Inventory、MinerU、OCR、LLM 或 GPU workload。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Run and review D3 Scale Test, including checkpoint/resume validation, before authorizing Full Corpus Inventory.
+Review D3 results and decide Full Corpus Inventory configuration and authorization.
 
 ## 变更记录
 
@@ -72,3 +77,4 @@ Run and review D3 Scale Test, including checkpoint/resume validation, before aut
 | 2026-09-14 | D1 Gate Closeout 完成；package editable install 标准化；下一任务为 D2 Representative Dry-run |
 | 2026-09-14 | Remote D2 Representative Dry-run 完成并通过 Artifact Review：目标 200、实际 198，195 success、3 partial、0 failed；下一任务为 D2 Representative Dry-run Artifact Review |
 | 2026-09-14 | D2 Representative Dry-run 和 D2 Gate 通过；下一任务为 D3 Scale Test |
+| 2026-09-14 | D3 Scale Test 完成并通过：目标/实际 1000，受控停止与 resume 通过，复用 300 个 checkpoint 记录；D3 Verdict: PASS；下一任务为 D3 Scale Test Artifact Review |
