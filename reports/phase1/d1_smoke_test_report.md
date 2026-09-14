@@ -17,8 +17,8 @@ Report Status: Remote D1 Completed
 | Source Root | `/mnt/data_nfs/dataset/original/cmes/journal` |
 | MIGB_DATA_ROOT | `/data/suzhe/migb` |
 
-The local implementation was committed in `5f8ecb3` and the report/progress baseline in `406473f`.
-The remote checkout contains both commits and was clean before the run. The initial HTTPS clone was
+The local implementation was committed in `5f8ecb3`; Remote D1 used commit `406473f`.
+The remote checkout contained both commits and was clean before the run. The initial HTTPS clone was
 not available because the remote server had no GitHub credentials; the exact local Git checkout was
 synchronized to the confirmed remote repository path without using a password.
 
