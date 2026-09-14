@@ -192,9 +192,9 @@ Policy 仍将 Candidate Source Corpus 视为 read-only input：
 
 | Field | Value | Notes |
 | --- | --- | --- |
-| candidate `MIGB_DATA_ROOT` | `/data/migb` | Canonical / persistent derived artifacts candidate；`/data` writable: yes |
+| `MIGB_DATA_ROOT` | `/data/suzhe/migb` | 当前 xuelangyun Remote Linux Server 的项目工作目录；`/data` 仍只是底层挂载点，且 writable: yes |
 | cache / temporary high-I/O workspace candidate | `/data-ssd/migb` | 当前不依赖；`/data-ssd` writable: no |
-| candidate path status | `/data/migb`: `Proposed - pending permission / readiness confirmation`; `/data-ssd/migb`: not available under current permissions | 尚未正式决定，也未创建目录 |
+| path status | `/data/suzhe/migb`: `Current project MIGB_DATA_ROOT`; `/data-ssd/migb`: not available under current permissions | 本次只修订文档，不创建目录 |
 | available disk space | `/`: ~697 GiB; `/data-ssd`: ~870 GiB; `/data`: ~2.7 TiB; `/mnt/data_nfs`: ~437 GiB | 采集时可用容量 |
 | same disk / different disk from source corpus | `TBD` | Source 位于 `/mnt/data_nfs`；候选路径的物理磁盘关系仍需确认 |
 | filesystem | `/`: ext4; `/data-ssd`: ext4; `/data`: ext4; `/mnt/data_nfs`: nfs4 | 按挂载点记录 |
@@ -202,9 +202,15 @@ Policy 仍将 Candidate Source Corpus 视为 read-only input：
 
 ### Storage Decision Boundary
 
-- `/data/migb` 当前为 Canonical / persistent derived artifacts 的 Proposed candidate，状态为 `Proposed - pending permission / readiness confirmation`，不正式决定 `MIGB_DATA_ROOT`。
+- 当前统一采用：
+
+  ```text
+  MIGB_DATA_ROOT=/data/suzhe/migb
+  ```
+
+- `/data/suzhe/migb` 是 xuelangyun Remote Linux Server 上当前项目的 MIGB_DATA_ROOT；`/data` 仍只是底层挂载点。
 - `/data-ssd/migb` 当前不作为可用依赖，因为 `/data-ssd` writable: no；未来如权限变化，再通过配置增加独立 scratch / cache root。
-- 不在本次 Intake 中创建 `/data/migb` 或 `/data-ssd/migb` 目录。
+- 不在本次 Intake 中创建 `/data/suzhe/migb` 或 `/data-ssd/migb` 目录。
 - 如果磁盘空间明显不足，只记录风险和影响，不自行移动或删除任何数据。
 - `/mnt/data_nfs` 为 Candidate Source Corpus 所在 NFS，采集时约 `91% used`，记录为：
 
@@ -230,7 +236,7 @@ Policy 仍将 Candidate Source Corpus 视为 read-only input：
 | zero-byte PDF count | `Completed: 0` | 当前 root 未确认 zero-byte PDF |
 | unreadable PDF count | `Completed: 0` | 当前 root 未观察到不可读 PDF |
 | NFS mount options | `Completed: NFS4; mount: /mnt/data_nfs; actual mount mode: rw` | 详细挂载选项以当前采集结果为准 |
-| `/data` write permission | `Completed: yes` | `/data/migb` 仍需作为候选路径进行后续 readiness confirmation |
+| `/data` write permission | `Completed: yes` | 底层挂载点可写；本次不创建 `/data/suzhe/migb` |
 | `/data-ssd` write permission | `Completed: no` | 当前不得依赖 `/data-ssd` |
 | candidate corpus parent-directory inspection | `Completed for observed root; project-wide scope TBD` | 当前 root 可能是完整 Candidate Source Corpus，也可能是 journal 子集 |
 
@@ -251,7 +257,7 @@ Policy 仍将 Candidate Source Corpus 视为 read-only input：
 | 5 | 是否存在明显按领域/书籍分类的目录？ | `Confirmed for observed root: 20 publication / professional-source groups; taxonomy mapping TBD` |
 | 6 | Source Corpus 是否可视为 read-only？ | `Operationally confirmed by policy: read-only input; physical NFS mount remains rw` |
 | 7 | 是否存在软链接 / 网络挂载？ | `Resolved for observed root: 0 symlinks; NFS4 mounted at /mnt/data_nfs, rw` |
-| 8 | 可用于 `MIGB_DATA_ROOT` 的磁盘还有多少空间？ | `Partially confirmed: /data ~2.7 TiB available and writable; /data-ssd ~870 GiB available but not writable` |
+| 8 | 可用于 `MIGB_DATA_ROOT` 的磁盘还有多少空间？ | `Partially confirmed: /data ~2.7 TiB available and writable for /data/suzhe/migb; /data-ssd ~870 GiB available but not writable` |
 | 9 | 是否允许 Docker？ | `Confirmed: Docker Engine 28.3.1; NVIDIA runtime available` |
 | 10 | 是否允许联网？ | `TBD` |
 | 11 | 是否有 GPU？ | `Confirmed: 4 × NVIDIA GeForce RTX 3090, 24 GiB VRAM each` |
@@ -300,6 +306,6 @@ Current Task: Minimal Corpus Inventory Pipeline Design v0.1
 | --- | --- |
 | Runtime Environment completeness | `Substantially Complete`；尚缺 network / internet accessibility、API accessibility、resource scheduler / quota information；不阻塞 Design |
 | Candidate Source Corpus completeness | `Partially Complete`；当前 `cmes_journal` Closeout 完成，但 complete project-wide Candidate Source Corpus scope 仍为 TBD |
-| Storage Readiness | `Substantially Complete`；`/data` writable，`/data-ssd` writable: no；`/data/migb` 为 Proposed candidate |
+| Storage Readiness | `Substantially Complete`；`/data` writable，`/data-ssd` writable: no；`MIGB_DATA_ROOT=/data/suzhe/migb` |
 | Minimal Corpus Inventory Pipeline design readiness | `Ready for Design` |
 | Source Corpus safety posture | Read-only operational access；physical NFS mount 为 rw；no source modification performed |

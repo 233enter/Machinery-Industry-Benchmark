@@ -104,14 +104,19 @@ Pipeline 禁止：
 
 ### 3.3 Output Location Baseline
 
-当前 Primary Candidate 为：
+当前统一采用：
 
 ~~~text
-/data/migb
+MIGB_DATA_ROOT=/data/suzhe/migb
 ~~~
 
-这是 Canonical / persistent derived artifacts 的候选位置，不是已经冻结的 Architecture Contract。
-当前 `/data` writable 为 `yes`，但 `/data/migb` 目录在本次设计任务中不创建。
+这是 xuelangyun Remote Linux Server 上 Canonical / persistent derived artifacts 的当前项目路径，
+并统一作为当前项目的 `MIGB_DATA_ROOT`。
+`/data` 仍然只是远程服务器的底层挂载点；`/data/suzhe/migb` 才是当前项目的 `MIGB_DATA_ROOT`。
+该目录在本次设计任务中不创建。
+
+该远程路径不要求在 Local Mac 上存在。Python Source Code 不得硬编码该绝对路径，必须通过
+Environment Config / configuration injection 提供。`/data/suzhe/migb` 不加入 Git。
 
 `/data-ssd` 当前 writable 为 `no`，本设计不依赖 `/data-ssd`，也不将 `/data-ssd/migb` 作为
 当前可用 scratch 或 cache root。
@@ -141,6 +146,25 @@ source_roots:
     access_policy: read_only
     enabled: true
 ~~~
+
+### 4.1 Environment Config Example
+
+未来运行配置可以采用以下边界：
+
+~~~yaml
+source_roots:
+  - source_root_id: cmes_journal
+    path: /mnt/data_nfs/dataset/original/cmes/journal
+    access_policy: read_only
+
+migb_data_root: /data/suzhe/migb
+
+inventory:
+  worker_count: 4
+~~~
+
+该配置示例只定义配置注入边界，不在本次创建配置文件。Secret、SSH Password、Private Key
+和 API Key 禁止进入 Repository、Config、Manifest 或 Log。
 
 每个 Inventory Record 必须带有：
 
@@ -528,16 +552,31 @@ Canonical Inventory Storage 候选为 Parquet。初始输出布局建议为：
 MIGB_DATA_ROOT/
   inventory/
     runs/
-      <run_id>/
+      <inventory_run_id>/
         files.parquet
         duplicate_groups.parquet
         errors.parquet
+        sample_manifest.json
         manifest.json
         statistics.json
 ~~~
 
-当前 `MIGB_DATA_ROOT` Primary Candidate 为 `/data/migb`，但上述布局仍属于设计建议，是否最终
-采用需要在设计评审中确认。输出布局必须满足：
+当前 D1 Artifact Layout 为：
+
+~~~text
+/data/suzhe/migb/
+  inventory/
+    runs/
+      <inventory_run_id>/
+        files.parquet
+        duplicate_groups.parquet
+        errors.parquet
+        sample_manifest.json
+        manifest.json
+        statistics.json
+~~~
+
+`/data/suzhe/migb` 是远程 Linux Server 路径；上述目录不要求存在于 Local Mac。输出布局必须满足：
 
 - 文件实例记录、重复关系、错误和统计可以独立读取；
 - 每个 Artifact 能关联到 `inventory_run_id`；
@@ -869,20 +908,20 @@ Artifact。新 Root 如何 merge / compare 与项目级统计如何聚合，列�
 
 ## 28. MIGB_DATA_ROOT Decision Boundary
 
-当前设计阶段 Primary Candidate 为：
+当前 xuelangyun Remote Linux Server 项目工作目录为：
 
 ~~~text
-/data/migb
+MIGB_DATA_ROOT=/data/suzhe/migb
 ~~~
 
-原因和约束：
+路径约束：
 
 - `/data` available 约 `2.7 TiB`；
 - `/data` writable 为 `yes`；
 - `/data-ssd` writable 为 `no`；
 - 当前不设计依赖 `/data-ssd` 的路径；
-- `/data/migb` 仍是 Proposed candidate，不是最终 Architecture Contract；
-- 本次不创建 `/data/migb`。
+- `/data/suzhe/migb` 是当前项目的 `MIGB_DATA_ROOT`，仍需遵守配置注入和 Output Path Safety Check；
+- 本次不创建 `/data/suzhe/migb`。
 
 如果后续管理员赋予 `/data-ssd` 写权限，可以通过配置增加独立 scratch / cache root，
 不要求重构 Canonical Paths。Candidate Source Corpus 所在 `/mnt/data_nfs` 不用于保存派生
@@ -919,7 +958,7 @@ scope 问题。
 
 本次只完成 Minimal Corpus Inventory Pipeline Design，禁止：
 
-- 创建 `/data/migb`；
+- 创建 `/data/suzhe/migb`；
 - 创建 `/data-ssd/migb`；
 - 安装依赖；
 - 编写 Pipeline Python；
