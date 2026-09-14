@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -7,7 +8,9 @@ import pyarrow.parquet as pq
 
 from migb.inventory.artifacts import ARTIFACT_NAMES
 from migb.inventory.config import EnvironmentConfig, InventorySettings, SourceRootConfig
-from migb.inventory.runner import run_d1, run_d2
+import pytest
+
+from migb.inventory.runner import PipelineError, run_d1, run_d2, run_d3
 from migb.inventory.schema import duplicate_groups_schema, errors_schema, files_schema
 
 
@@ -147,3 +150,108 @@ def test_run_d2_excludes_d1_sample_and_records_sampling_metadata(
     assert d2_result.statistics["successful_files"] == 20
     assert d2_result.statistics["error_count"] == 0
     assert (d1_result.run_directory / "sample_manifest.json").read_bytes() == d1_manifest_before
+
+
+def test_run_d3_controlled_stop_resume_and_finalization(
+    tmp_path: Path, make_pdf, long_text: str
+) -> None:
+    source_root = tmp_path / "source"
+    output_root = tmp_path / "derived"
+    for group_index in range(2):
+        group = source_root / f"group-{group_index:02d}"
+        for file_index in range(14):
+            make_pdf(
+                group / f"item-{file_index:02d}.pdf",
+                [long_text + f" group {group_index} item {file_index}"],
+            )
+
+    config = EnvironmentConfig(
+        source_roots=(SourceRootConfig("cmes_journal", source_root),),
+        migb_data_root=output_root,
+        inventory=InventorySettings(worker_count=4, text_page_char_threshold=50),
+    )
+    repo_root = Path(__file__).parents[1]
+    d1_result = run_d1(config, repo_root=repo_root, run_id="d1-local-d3-resume")
+    d2_result = run_d2(
+        config,
+        prior_run_id=d1_result.run_id,
+        repo_root=repo_root,
+        run_id="d2-local-d3-resume",
+    )
+
+    interrupted = run_d3(
+        config,
+        prior_run_ids=(d1_result.run_id, d2_result.run_id),
+        repo_root=repo_root,
+        run_id="d3-local-resume",
+        target_sample_count=10,
+        checkpoint_batch_size=2,
+        stop_after=2,
+    )
+    assert interrupted.run_status == "interrupted"
+    assert interrupted.statistics["processed_files"] == 2
+    state = json.loads((interrupted.run_directory / ".run_state.json").read_text())
+    assert state["run_status"] == "interrupted"
+    assert state["completed_count"] == 2
+    assert len(list((interrupted.run_directory / "checkpoints" / "files").glob("*.parquet"))) == 1
+
+    completed = run_d3(
+        config,
+        prior_run_ids=(d1_result.run_id, d2_result.run_id),
+        repo_root=repo_root,
+        run_id=interrupted.run_id,
+        resume=True,
+        target_sample_count=10,
+        checkpoint_batch_size=2,
+    )
+    assert completed.run_status == "completed"
+    assert completed.statistics["processed_files"] == 6
+    assert completed.statistics["checkpoint_reused_count"] == 2
+    assert completed.statistics["checkpoint_reprocessed_count"] == 0
+    assert completed.manifest["run_status"] == "completed"
+    assert completed.manifest["excluded_prior_item_count"] == 22
+    assert completed.manifest["worker_count"] == 4
+    assert all(isinstance(item, dict) for item in completed.manifest["output_artifacts"])
+    assert sorted(path.name for path in completed.run_directory.iterdir() if path.name in ARTIFACT_NAMES) == sorted(ARTIFACT_NAMES)
+    descriptors = {
+        item["path"]: item for item in completed.manifest["output_artifacts"]
+    }
+    for artifact_name in ARTIFACT_NAMES:
+        artifact_path = completed.run_directory / artifact_name
+        assert descriptors[artifact_name]["size_bytes"] == artifact_path.stat().st_size
+        if artifact_name != "manifest.json":
+            assert descriptors[artifact_name]["sha256"] == hashlib.sha256(
+                artifact_path.read_bytes()
+            ).hexdigest()
+    normalized_manifest = json.loads(
+        (completed.run_directory / "manifest.json").read_text()
+    )
+    normalized_manifest["output_artifacts"] = [
+        {
+            **item,
+            "sha256": "0" * 64,
+        }
+        if item["path"] == "manifest.json"
+        else item
+        for item in normalized_manifest["output_artifacts"]
+    ]
+    assert descriptors["manifest.json"]["sha256"] == hashlib.sha256(
+        (
+            json.dumps(normalized_manifest, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n"
+        ).encode("utf-8")
+    ).hexdigest()
+
+    final_state = json.loads((completed.run_directory / ".run_state.json").read_text())
+    assert final_state["run_status"] == "completed"
+    assert final_state["completed_count"] == 6
+    with pytest.raises(PipelineError, match="immutable"):
+        run_d3(
+            config,
+            prior_run_ids=(d1_result.run_id, d2_result.run_id),
+            repo_root=repo_root,
+            run_id=completed.run_id,
+            resume=True,
+            target_sample_count=10,
+            checkpoint_batch_size=2,
+        )

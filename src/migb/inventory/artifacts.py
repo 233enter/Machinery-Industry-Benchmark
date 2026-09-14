@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 from pathlib import Path
+import tempfile
 from typing import Any, Iterable
 
 from .schema import duplicate_groups_schema, errors_schema, files_schema, write_parquet
@@ -34,6 +37,115 @@ def write_json(payload: dict[str, Any], path: str | Path) -> None:
     with output.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")
+
+
+def json_bytes(payload: dict[str, Any]) -> bytes:
+    """Serialize JSON with the same stable representation used by write_json."""
+
+    return (
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+
+def _fsync_directory(directory: Path) -> None:
+    """Persist a directory entry when the platform supports directory fsync."""
+
+    try:
+        directory_fd = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _atomic_write_bytes(data: bytes, path: str | Path) -> None:
+    """Write bytes through a same-directory temp file and atomic rename."""
+
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        dir=output.parent,
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(file_descriptor, "wb") as handle:
+            file_descriptor = -1
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+        _fsync_directory(output.parent)
+    finally:
+        if file_descriptor != -1:
+            os.close(file_descriptor)
+        try:
+            temporary_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def write_json_atomic(payload: dict[str, Any], path: str | Path) -> None:
+    """Write JSON with a durable temp-file-to-rename sequence."""
+
+    _atomic_write_bytes(json_bytes(payload), path)
+
+
+def write_parquet_atomic(
+    rows: Iterable[dict[str, Any]],
+    path: str | Path,
+    schema,
+) -> None:
+    """Write a Parquet file atomically using an explicit schema."""
+
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        dir=output.parent,
+    )
+    os.close(file_descriptor)
+    file_descriptor = -1
+    temporary_path = Path(temporary_name)
+    try:
+        write_parquet(rows, temporary_path, schema)
+        with temporary_path.open("rb") as handle:
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+        _fsync_directory(output.parent)
+    finally:
+        try:
+            temporary_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def sha256_path(path: str | Path) -> str:
+    """Return the streaming SHA-256 digest of one artifact."""
+
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def artifact_descriptor(path: str | Path, *, checksum_basis: str | None = None) -> dict[str, Any]:
+    """Describe one materialized artifact for a manifest checksum record."""
+
+    artifact_path = Path(path)
+    descriptor: dict[str, Any] = {
+        "path": artifact_path.name,
+        "size_bytes": artifact_path.stat().st_size,
+        "sha256": sha256_path(artifact_path),
+    }
+    if checksum_basis is not None:
+        descriptor["checksum_basis"] = checksum_basis
+    return descriptor
 
 
 def group_exact_duplicates(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
