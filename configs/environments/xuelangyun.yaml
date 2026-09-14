@@ -1,0 +1,10 @@
+source_roots:
+  - source_root_id: cmes_journal
+    path: /mnt/data_nfs/dataset/original/cmes/journal
+    access_policy: read_only
+
+migb_data_root: /data/suzhe/migb
+
+inventory:
+  worker_count: 4
+  text_page_char_threshold: 50

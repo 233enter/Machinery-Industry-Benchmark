@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "migb"
+version = "0.1.0"
+description = "Mechanical Industry General Benchmark inventory utilities"
+requires-python = ">=3.10"
+dependencies = [
+    "PyMuPDF>=1.24,<2",
+    "PyYAML>=6.0,<7",
+    "pyarrow>=14,<22",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
