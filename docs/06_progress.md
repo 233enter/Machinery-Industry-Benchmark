@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: D2 Representative Dry-run Artifact Review
+Current Task: D3 Scale Test
 
 ## Current Status
 
@@ -18,7 +18,7 @@ Current Task: D2 Representative Dry-run Artifact Review
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: D2 Representative Dry-run Artifact Review
+- Current Task: D3 Scale Test
 
 ## 当前进展
 
@@ -44,12 +44,13 @@ Current Task: D2 Representative Dry-run Artifact Review
 - 完成 D1 Gate Closeout，并将 Python package 标准化为可 editable install；Local/Remote pytest 均通过（33 passed）。
 - 完成 Remote D2：Run ID 为 `d2-20260914T062102Z-18a5aad`，目标 200、实际 198，195 success、3 partial、0 failed；D1 样本 20 个全部排除。
 - 完成 D2 六个 Artifact 的远程校验及 Mac 临时复核；确定性采样、Schema、Manifest、Source Consistency 及 D1 Artifact 不变性均通过，D2 Verdict: PASS；报告见 `reports/phase1/d2_representative_dryrun_report.md`。
+- D2 Representative Dry-run: Passed；D2 Gate: Passed。
 - 未执行 D3、Full Inventory、MinerU、OCR、LLM 或 GPU workload。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review D2 results and decide D3 Scale Test configuration.
+Run and review D3 Scale Test, including checkpoint/resume validation, before authorizing Full Corpus Inventory.
 
 ## 变更记录
 
@@ -70,3 +71,4 @@ Review D2 results and decide D3 Scale Test configuration.
 | 2026-09-14 | Remote D1 Smoke Test 完成并通过 Artifact Review：20/20 success、0 errors、source consistency 通过；下一任务为 D1 Smoke Test Artifact Review |
 | 2026-09-14 | D1 Gate Closeout 完成；package editable install 标准化；下一任务为 D2 Representative Dry-run |
 | 2026-09-14 | Remote D2 Representative Dry-run 完成并通过 Artifact Review：目标 200、实际 198，195 success、3 partial、0 failed；下一任务为 D2 Representative Dry-run Artifact Review |
+| 2026-09-14 | D2 Representative Dry-run 和 D2 Gate 通过；下一任务为 D3 Scale Test |
