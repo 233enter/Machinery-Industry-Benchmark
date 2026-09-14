@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: D3 Scale Test Artifact Review
+Current Task: Full Corpus Inventory
 
 ## Current Status
 
@@ -18,7 +18,10 @@ Current Task: D3 Scale Test Artifact Review
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: D3 Scale Test Artifact Review
+- D3 Scale Test: Passed。
+- D3 Gate: Passed。
+- Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory。
+- Current Task: Full Corpus Inventory
 
 ## 当前进展
 
@@ -50,12 +53,12 @@ Current Task: D3 Scale Test Artifact Review
 - 完成 Remote D3 Scale Test：目标 1000、实际 1000，1000 success、0 partial、0 failed；worker count=4、`dirty=false`。
 - D3 受控停止与 resume 通过：初次 `completed_count=300`，同一 Run ID resume 后 `checkpoint_reused_count=300`，最终 `run_status=completed`。
 - D3 六个 Canonical Artifact、Schema、Source Provenance、D1/D2 排除、Source Consistency 和 Artifact checksum 校验通过；D3 Verdict: PASS；报告见 `reports/phase1/d3_scale_test_report.md`。
-- 未执行 Full Inventory、MinerU、OCR、LLM 或 GPU workload。
+- 尚未执行 Full Inventory；MinerU、OCR、LLM 或 GPU workload 仍未执行。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review D3 results and decide Full Corpus Inventory configuration and authorization.
+Complete and review Full Corpus Inventory before closing Phase 1 and authorizing Phase 2.
 
 ## 变更记录
 
@@ -78,3 +81,4 @@ Review D3 results and decide Full Corpus Inventory configuration and authorizati
 | 2026-09-14 | Remote D2 Representative Dry-run 完成并通过 Artifact Review：目标 200、实际 198，195 success、3 partial、0 failed；下一任务为 D2 Representative Dry-run Artifact Review |
 | 2026-09-14 | D2 Representative Dry-run 和 D2 Gate 通过；下一任务为 D3 Scale Test |
 | 2026-09-14 | D3 Scale Test 完成并通过：目标/实际 1000，受控停止与 resume 通过，复用 300 个 checkpoint 记录；D3 Verdict: PASS；下一任务为 D3 Scale Test Artifact Review |
+| 2026-09-14 | D3 Scale Test 和 D3 Gate 通过；Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory；下一任务为 Full Corpus Inventory |

@@ -90,3 +90,25 @@ def test_inspect_pdf_open_failure_is_check_failed(tmp_path: Path) -> None:
     assert result["pdf_status"] == "unknown"
     assert result["text_layer_status"] == "check_failed"
     assert result["errors"]
+
+
+def test_inspect_pdf_zero_page_full_semantics(
+    tmp_path: Path, make_zero_page_pdf
+) -> None:
+    path = make_zero_page_pdf(tmp_path / "zero-page.pdf")
+
+    legacy_result = inspect_pdf(path, text_page_char_threshold=50)
+    full_result = inspect_pdf(
+        path,
+        text_page_char_threshold=50,
+        classify_zero_page_as_invalid=True,
+    )
+
+    assert legacy_result["pdf_open_status"] == "success"
+    assert legacy_result["page_count"] == 0
+    assert legacy_result["pdf_status"] == "valid"
+    assert full_result["pdf_open_status"] == "success"
+    assert full_result["page_count"] == 0
+    assert full_result["pdf_status"] == "corrupted_or_invalid"
+    assert full_result["text_layer_status"] == "check_failed"
+    assert full_result["errors"][0]["error_category"] == "zero_page_count"

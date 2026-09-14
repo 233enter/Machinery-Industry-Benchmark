@@ -10,8 +10,13 @@ from migb.inventory.artifacts import ARTIFACT_NAMES
 from migb.inventory.config import EnvironmentConfig, InventorySettings, SourceRootConfig
 import pytest
 
-from migb.inventory.runner import PipelineError, run_d1, run_d2, run_d3
-from migb.inventory.schema import duplicate_groups_schema, errors_schema, files_schema
+from migb.inventory.runner import PipelineError, run_d1, run_d2, run_d3, run_full
+from migb.inventory.schema import (
+    FULL_INVENTORY_SCHEMA_VERSION,
+    duplicate_groups_schema,
+    errors_schema,
+    files_schema,
+)
 
 
 def test_run_d1_writes_six_artifacts_and_captures_pdf_failure(
@@ -255,3 +260,104 @@ def test_run_d3_controlled_stop_resume_and_finalization(
             target_sample_count=10,
             checkpoint_batch_size=2,
         )
+
+
+def test_run_full_covers_all_files_and_uses_full_zero_page_semantics(
+    tmp_path: Path, make_pdf, make_zero_page_pdf, long_text: str
+) -> None:
+    source_root = tmp_path / "source"
+    output_root = tmp_path / "derived"
+    make_pdf(source_root / "group-a" / "【2026-01】normal.pdf", [long_text])
+    make_zero_page_pdf(source_root / "group-a" / "zero\npage.pdf")
+    make_pdf(source_root / "group-b" / "text-absent.pdf", [None])
+
+    config = EnvironmentConfig(
+        source_roots=(SourceRootConfig("cmes_journal", source_root),),
+        migb_data_root=output_root,
+        inventory=InventorySettings(worker_count=4, text_page_char_threshold=50),
+    )
+    result = run_full(
+        config,
+        repo_root=Path(__file__).parents[1],
+        run_id="full-local-test",
+        expected_pdf_count=3,
+        expected_top_level_group_count=2,
+    )
+
+    assert result.run_status == "completed"
+    assert result.manifest["inventory_schema_version"] == FULL_INVENTORY_SCHEMA_VERSION
+    assert result.manifest["selection_stage"] == "full"
+    assert result.manifest["selection_method"] == (
+        "all_eligible_pdf_in_configured_source_root"
+    )
+    assert result.manifest["selected_count"] == 3
+    assert result.manifest["processed_count"] == 3
+    assert result.manifest["checkpoint_batch_size"] == 500
+    assert result.manifest["source_snapshot_match"] is True
+    assert result.manifest["artifact_validation"]["checksum_validation"] == "passed"
+    assert result.artifact_validation["status"] == "passed"
+
+    sample_manifest = json.loads(
+        (result.run_directory / "sample_manifest.json").read_text(encoding="utf-8")
+    )
+    assert sample_manifest["selection_stage"] == "full"
+    assert sample_manifest["target_count"] == 3
+    assert sample_manifest["actual_count"] == 3
+    assert len(sample_manifest["items"]) == 3
+    assert "group-a/zero\npage.pdf" in {
+        item["relative_path"] for item in sample_manifest["items"]
+    }
+
+    files_table = pq.read_table(result.run_directory / "files.parquet")
+    assert files_table.num_rows == 3
+    assert files_table.schema.equals(files_schema())
+    records = files_table.to_pylist()
+    zero_page = next(record for record in records if record["page_count"] == 0)
+    assert zero_page["inventory_schema_version"] == FULL_INVENTORY_SCHEMA_VERSION
+    assert zero_page["pdf_status"] == "corrupted_or_invalid"
+    assert zero_page["inventory_status"] == "partial"
+    assert zero_page["text_layer_status"] == "check_failed"
+
+    statistics = json.loads(
+        (result.run_directory / "statistics.json").read_text(encoding="utf-8")
+    )
+    assert statistics["total_files"] == 3
+    assert statistics["processed_files"] == 3
+    assert statistics["corrupted_or_invalid_count"] == 1
+    assert statistics["zero_page_count"] == 1
+    assert statistics["text_check_failed_count"] == 1
+    assert statistics["text_layer_by_parent_group"]["group-a"]["check_failed"] == 1
+    assert statistics["filename_match_rate"] == pytest.approx(1 / 3)
+
+    with pytest.raises(PipelineError, match="immutable"):
+        run_full(
+            config,
+            repo_root=Path(__file__).parents[1],
+            run_id=result.run_id,
+            resume=True,
+            expected_pdf_count=3,
+            expected_top_level_group_count=2,
+        )
+
+
+def test_full_preflight_count_gate_reports_mismatch_without_creating_run(
+    tmp_path: Path, make_pdf
+) -> None:
+    source_root = tmp_path / "source"
+    output_root = tmp_path / "derived"
+    make_pdf(source_root / "group" / "one.pdf", ["one"])
+    config = EnvironmentConfig(
+        source_roots=(SourceRootConfig("cmes_journal", source_root),),
+        migb_data_root=output_root,
+        inventory=InventorySettings(worker_count=4),
+    )
+
+    with pytest.raises(PipelineError, match="added_paths=.*missing_paths="):
+        run_full(
+            config,
+            repo_root=Path(__file__).parents[1],
+            run_id="full-preflight-mismatch",
+            expected_pdf_count=2,
+            expected_top_level_group_count=1,
+        )
+    assert not (output_root / "inventory" / "runs" / "full-preflight-mismatch").exists()

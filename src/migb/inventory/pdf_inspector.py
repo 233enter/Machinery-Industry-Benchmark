@@ -47,7 +47,12 @@ def _metadata_value(metadata: dict[str, Any], key: str) -> str | None:
     return None if value is None else str(value)
 
 
-def inspect_pdf(path: str, text_page_char_threshold: int) -> dict[str, Any]:
+def inspect_pdf(
+    path: str,
+    text_page_char_threshold: int,
+    *,
+    classify_zero_page_as_invalid: bool = False,
+) -> dict[str, Any]:
     """Open one PDF and collect lightweight metadata and text-layer signals.
 
     The function imports PyMuPDF inside the worker task so a Document is never
@@ -150,6 +155,8 @@ def inspect_pdf(path: str, text_page_char_threshold: int) -> dict[str, Any]:
 
         page_count = result["page_count"]
         if page_count is None or page_count == 0:
+            if page_count == 0 and classify_zero_page_as_invalid:
+                result["pdf_status"] = "corrupted_or_invalid"
             exc = ValueError("PDF has no readable pages")
             result["text_layer_status"] = "check_failed"
             result["errors"].append(_error("text_sample", "zero_page_count", exc))

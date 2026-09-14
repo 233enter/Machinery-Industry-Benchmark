@@ -9,7 +9,10 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
+# Keep the D1/D2/D3 value as the legacy default.  Full uses an explicit
+# version because its zero-page PDF semantics are intentionally different.
 INVENTORY_SCHEMA_VERSION = "d1-v0.1"
+FULL_INVENTORY_SCHEMA_VERSION = "inventory-v0.2"
 
 
 def _string(name: str) -> pa.Field:
