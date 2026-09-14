@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: Minimal Corpus Inventory Pipeline Design v0.1
+Current Task: D1 Smoke Test Implementation
 
 ## Current Status
 
@@ -18,7 +18,7 @@ Current Task: Minimal Corpus Inventory Pipeline Design v0.1
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: Minimal Corpus Inventory Pipeline Design v0.1
+- Current Task: D1 Smoke Test Implementation
 
 ## 当前进展
 
@@ -33,12 +33,13 @@ Current Task: Minimal Corpus Inventory Pipeline Design v0.1
 - 完成 Phase 0 Cross-document Consistency Review，未发现阻塞性问题，Gate 0: Passed。
 - 完成 `cmes_journal` Source Root 的 Environment & Candidate Source Corpus Intake Closeout：60454 个 PDF、20 个一级目录、0 个非 PDF、0 个软链接、0 个 zero-byte PDF、0 个不可读 PDF。
 - 确认 Candidate Source Corpus 位于 NFS4 `rw` mount，但按项目策略作为 read-only input；`/data` 可写，`/data-ssd` 不可写。
+- 完成 Minimal Corpus Inventory Pipeline Design v0.1 Design Freeze，冻结 D1 的 PyMuPDF、UUIDv5、采样、Text-layer Heuristic、Status Semantics、Source Consistency、Duplicate Representation 和 4 workers 基线。
 - 完成设计文档结构和说明占位。
 - 暂未实现 PDF 解析、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review Minimal Corpus Inventory Pipeline Design, then implement D1 Smoke Test only.
+Implement local unit tests and remote D1 Smoke Test, then review D1 artifacts before D2.
 
 ## 变更记录
 
@@ -54,3 +55,4 @@ Review Minimal Corpus Inventory Pipeline Design, then implement D1 Smoke Test on
 | 2026-09-14 | Pilot Design v0.1 完成并通过正式评审，Phase 0 Cross-document Consistency Review 无阻塞问题，Gate 0: Passed；下一任务为 Phase 1 Environment & Corpus Intake |
 | 2026-09-14 | Environment & Candidate Source Corpus Intake Closeout 完成；下一任务为 Minimal Corpus Inventory Pipeline Design v0.1 |
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成初稿；下一任务为评审设计并仅实现 D1 Smoke Test |
+| 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成 Design Freeze；下一任务为 D1 Smoke Test Implementation |

@@ -3,7 +3,7 @@
 Project: Mechanical Industry General Benchmark
 Document: Minimal Corpus Inventory Pipeline Design
 Version: 0.1
-Status: Draft - Awaiting Review
+Status: Reviewed - Baseline
 Phase: Phase 1 - Corpus Inventory
 Current Task: Minimal Corpus Inventory Pipeline Design v0.1
 
@@ -26,6 +26,114 @@ PDF count = 60454
 
 `60454` 是当前 `cmes_journal` Source Root 的 authoritative operational count，不是整个项目
 Complete Candidate Source Corpus 的最终数量。Pipeline 必须支持未来增加其他 Source Root。
+
+### 1.1 Local Development / Remote Execution Boundary
+
+当前项目采用以下执行边界：
+
+~~~text
+Local Mac
+    ↓
+Codex Development
+Git Repository
+docs / src / configs / tests
+    ↓
+Git
+    ↓
+Remote Linux Server
+hostname: xuelangyun
+    ↓
+D1 / D2 / D3 / Full Inventory Runtime
+~~~
+
+#### Local Mac
+
+Local Mac 负责：
+
+- Codex development；
+- Git；
+- 文档；
+- Python Code；
+- Unit Test；
+- synthetic / tiny PDF fixture。
+
+Local Mac 不作为正式 Corpus Runtime。不得：
+
+- 下载完整 Candidate Source Corpus；
+- 在 Mac 上运行 Full Inventory；
+- 把真实 NFS Corpus 加入 Git；
+- 设计成 `Mac → mount/read 60,454 real PDFs directly`。
+
+#### Remote Linux Server
+
+Remote Linux Server 是正式 Runtime：
+
+~~~text
+hostname = xuelangyun
+source = /mnt/data_nfs/dataset/original/cmes/journal
+MIGB_DATA_ROOT = /data/suzhe/migb
+~~~
+
+以上均为 Remote Paths。Python Source Code 不得硬编码这些绝对路径，必须通过 Environment
+Config / configuration injection 提供。
+
+### 1.2 Local Unit Test / Remote Integration Test
+
+#### Local Unit Tests
+
+Local Mac 上的 Unit Test 使用 synthetic / tiny PDF fixture，验证：
+
+- UUIDv5；
+- Filename Parsing；
+- Schema；
+- Path Safety；
+- Manifest Logic；
+- Status Semantics；
+- Error Handling。
+
+真实 NFS PDF 不提交到 Git，也不作为 Local Unit Test 的输入。
+
+#### Remote Integration Tests
+
+以下真实 Candidate Source Corpus 测试只在 `xuelangyun` Remote Linux Server 执行：
+
+~~~text
+D1 = 20 PDFs
+D2 = 200 PDFs
+D3 = 1000 PDFs
+Full = 60454 PDFs
+~~~
+
+真实 Corpus Test 不在 Local Mac 运行。
+
+### 1.3 Git / Runtime Provenance
+
+正式 Remote Run 推荐流程：
+
+~~~text
+Mac Codex
+→ commit
+→ push / sync
+→ Remote Server git pull
+→ execute
+~~~
+
+Remote Job Manifest 必须记录：
+
+~~~text
+hostname
+git_commit
+dirty
+python_version
+tool_versions
+config_snapshot
+~~~
+
+D1 / D2 / D3 正式 Run 优先要求：
+
+~~~text
+dirty = false
+~~~
 
 ## 2. Pipeline Goal
 
@@ -149,7 +257,13 @@ source_roots:
 
 ### 4.1 Environment Config Example
 
-未来运行配置可以采用以下边界：
+未来运行配置可以采用以下边界，建议文件位置为：
+
+~~~text
+configs/environments/xuelangyun.yaml
+~~~
+
+该文件只在后续实现阶段按需创建；本次只定义配置边界。
 
 ~~~yaml
 source_roots:
@@ -163,8 +277,8 @@ inventory:
   worker_count: 4
 ~~~
 
-该配置示例只定义配置注入边界，不在本次创建配置文件。Secret、SSH Password、Private Key
-和 API Key 禁止进入 Repository、Config、Manifest 或 Log。
+该配置示例只定义配置注入边界，不在本次创建配置文件。Secret、SSH password、private key
+和 API key 禁止进入 Git、Config、Manifest 或 logs。
 
 每个 Inventory Record 必须带有：
 
@@ -247,15 +361,33 @@ Schema Review 确认。
 
 ### 6.3 Stable Identity Rules
 
-建议 `file_instance_id` 基于以下输入生成 deterministic identity：
+`file_instance_id v0.1` 冻结采用 deterministic UUIDv5。Canonical Name 为：
 
 ~~~text
-source_root_id
-+
-relative_path
+migb://file-instance/{source_root_id}/{relative_path_posix}
 ~~~
 
-UUIDv5 或稳定 hash 均可作为候选实现。具体算法在实现前冻结。无论采用何种算法，都必须满足：
+逻辑实现为：
+
+~~~python
+uuid.uuid5(
+    uuid.NAMESPACE_URL,
+    f"migb://file-instance/{source_root_id}/{relative_path_posix}"
+)
+~~~
+
+要求：
+
+- `relative_path` 使用 POSIX-style representation；
+- 不使用 absolute path；
+- 不使用 `sha256`；
+- 不使用 `mtime`；
+- 不使用 `size`；
+- 不擅自 lower-case；
+- 不擅自 Unicode normalize；
+- 具体实现必须保留文件名中的实际字符。
+
+无论采用何种存储类型，都必须满足：
 
 ~~~text
 file_instance_id != document_id
@@ -264,8 +396,8 @@ file_instance_id != sha256
 
 `sha256` 只代表 exact binary file identity；`file_instance_id` 表示 Source Root 中的文件实例。
 
-文件 rename / relocate 是否应产生新的 File Instance，必须在实现规范中明确，当前不在本文档
-中擅自给出最终规则。
+在当前 Operational Model 中，文件 rename / relocate 产生新的 File Instance ID；如果 binary
+未改变，可以通过 `sha256` 识别其 exact binary relation。
 
 ## 7. Lightweight PDF Metadata
 
@@ -293,25 +425,79 @@ metadata_modification_date
 
 PDF metadata 允许为空、缺失或异常。metadata 缺失不得直接把 PDF 判为 invalid。
 
-轻量读取的最终 library 仍未冻结，候选包括 PyMuPDF 和 pypdf，见第 15 节。当前不运行
-PDF parser，也不执行全文 page count 扫描。
+轻量读取的 D1 baseline library 已冻结为 PyMuPDF，见第 15 节。该决定只适用于 Phase 1
+Minimal Corpus Inventory Pipeline，不等于 Phase 3 Document Parser 必须使用 PyMuPDF。当前不
+运行 PDF parser，也不执行全文 page count 扫描。
 
 ## 8. PDF Health Status and Failure Boundary
 
-### 8.1 Controlled PDF Status
+### 8.1 Controlled Status Semantics
 
-建议 `pdf_status` 使用以下受控值：
+为避免 `pdf_open_status`、`pdf_status` 和 `inventory_status` 语义重叠，D1 冻结以下受控值。
+
+`inventory_status`：
+
+~~~text
+success
+partial
+failed
+~~~
+
+- `success`：所有 mandatory D1 stages 成功；
+- `partial`：File Instance 可保留，至少部分 Stage 成功，但一个或多个非致命 inspection stage 失败；
+- `failed`：无法得到最低要求的 Inventory Record，或 mandatory stage 严重失败。
+
+`hash_status`：
+
+~~~text
+success
+failed
+not_attempted
+~~~
+
+`pdf_open_status`：
+
+~~~text
+success
+failed
+not_attempted
+~~~
+
+`pdf_status`：
 
 ~~~text
 valid
 encrypted
-open_error
 corrupted_or_invalid
 unknown
 ~~~
 
-`pdf_open_status`、`pdf_status` 和 `inventory_status` 的最终关系在 Schema Review 中确认。
-一个 metadata 缺失或单字段解析异常不应无依据地将整个 PDF 判为 invalid。
+不将 `open_error` 作为 `pdf_status` 的值。Open Failure 使用：
+
+~~~text
+pdf_open_status = failed
+pdf_status = unknown
+~~~
+
+并记录 Error Manifest。metadata 缺失不是 Error；只有真正的 parse exception 或 malformed value
+才记录 Error。metadata 缺失或单字段解析异常不应无依据地将整个 PDF 判为 invalid。
+
+`text_layer_status` 保持：
+
+~~~text
+text_present
+text_absent
+mixed_or_uncertain
+check_failed
+~~~
+
+`filename_parse_status` 冻结为：
+
+~~~text
+matched
+unmatched
+error
+~~~
 
 ### 8.2 Independent Failure Unit
 
@@ -368,18 +554,24 @@ exact_duplicate_group
 duplicate_groups.parquet
 ~~~
 
-至少需要表达：
+`duplicate_groups.parquet` 采用 normalized representation，并冻结为一条 duplicate member 一行：
+
+~~~text
+1 duplicate member = 1 row
+~~~
+
+字段为：
 
 ~~~text
 duplicate_group_id
 sha256
-file_count
-file_instance_ids
-representative_file_instance_id
+group_size
+file_instance_id
+is_representative
 ~~~
 
-`file_instance_ids` 可以采用适合 Parquet 的 normalized representation，具体 representation
-仍需在实现前确定。
+只有 `group_size >= 2` 的 group 进入该表。Representative 只用于 Inventory 展示和分析，不得
+解释为 `Logical Document` 或 `document_family`。
 
 Duplicate Detection 只记录关系：
 
@@ -415,7 +607,48 @@ sampled_text_char_count
 text_layer_status
 ~~~
 
-具体 character threshold 必须保持 config-driven，并在实现前冻结或明确版本化。该 heuristic
+### 11.1 D1 Text-layer Heuristic Baseline
+
+D1 baseline 冻结采样页面为：
+
+~~~text
+first
+middle
+last
+~~~
+
+对应 page index 为：
+
+~~~text
+0
+page_count // 2
+page_count - 1
+~~~
+
+重复页面自动去重。每页使用 PyMuPDF 提取 text，先 strip whitespace，再 count Unicode
+characters。配置字段为：
+
+~~~text
+text_page_char_threshold = 50
+~~~
+
+D1 provisional classification：
+
+~~~text
+all sampled page extractions failed
+→ check_failed
+
+all sampled pages == 0 chars
+→ text_absent
+
+all sampled pages >= 50 chars
+→ text_present
+
+otherwise
+→ mixed_or_uncertain
+~~~
+
+以上只是 Phase 1 heuristic，D2 后可根据真实分布重新评估 threshold 和采样策略。该 heuristic
 不能声称为最终的：
 
 ~~~text
@@ -669,13 +902,24 @@ bounded concurrency
 48 CPU → 48 workers
 ~~~
 
-Initial concurrency baseline 建议从：
+### D1 Worker Baseline
+
+D1 冻结：
 
 ~~~text
-4 workers
+worker_count = 4
 ~~~
 
-作为 D1 / dry-run 起点。根据实际以下指标再决定是否提高至 `8 workers`：
+D1 不自动提高 worker。D1 必须记录：
+
+~~~text
+files_per_second
+MiB_per_second
+wall_time
+error_count
+~~~
+
+Full Run `worker_count` 仍然为 `TBD`。是否在 D2 前提高到 `8 workers`，根据 D1 / D2 数据决定：
 
 - files/s；
 - MiB/s；
@@ -729,11 +973,34 @@ stream / bounded batches
 目标：
 
 ~~~text
-20 PDFs
+20 top-level groups
+→ 1 PDF per group
+→ 20 PDFs
 ~~~
 
-建议每个当前 top-level group 选 1 个 PDF。当前已观察到 20 个一级目录，因此目标为约 20 个
-输入记录。
+当前已观察到 20 个 top-level groups。D1 对每个 `parent_group` 执行：
+
+~~~text
+sort by relative_path
+take first eligible PDF
+~~~
+
+`sampling_method` 冻结为：
+
+~~~text
+first_by_sorted_relative_path_per_parent_group
+~~~
+
+D1 是 Smoke Test，不追求代表性；D2 才负责 Representative Sampling。D1 必须生成
+`sample_manifest.json`，至少记录：
+
+~~~text
+source_root_id
+parent_group
+file_instance_id
+relative_path
+sampling_method
+~~~
 
 D1 至少验证：
 
@@ -831,7 +1098,33 @@ inventory config/version
 
 ## 25. File Change Detection
 
-由于 Source NFS 实际 mount 为 `rw`，Full Run 前后建议记录 Corpus Snapshot Signals：
+由于 Source NFS 实际 mount 为 `rw`，每个 File Task 的 Source Consistency v0.1 冻结为：
+
+处理前记录：
+
+~~~text
+size_before
+mtime_ns_before
+~~~
+
+完成 SHA-256 和 PDF Inspection 后再次记录：
+
+~~~text
+size_after
+mtime_ns_after
+~~~
+
+如果任一值发生变化：
+
+~~~text
+source_changed_during_run = true
+inventory_status = partial
+stage = source_consistency
+~~~
+
+并记录对应 Error Record。D1 不对 Source PDF 加任何 lock。
+
+Full Run 前后仍建议记录 Corpus Snapshot Signals：
 
 ~~~text
 file_count
@@ -847,14 +1140,7 @@ mtime_ns
 sha256
 ~~~
 
-如果文件在运行期间发生变化，应标记：
-
-~~~text
-source_changed_during_run
-~~~
-
-不得静默认为 Hash 和 Metadata 属于同一输入版本。具体双 stat / consistency strategy 在实现
-阶段设计。
+不得静默认为 Hash 和 Metadata 属于同一输入版本。
 
 ## 26. Inventory Statistics
 
@@ -972,17 +1258,64 @@ scope 问题。
 - LLM 调用；
 - GPU workload。
 
-D1 / D2 / D3 以及 Full Inventory 均必须等待设计评审和后续实施授权。本次不运行 Pipeline。
+D1 implementation 可在本 Design Freeze 后按项目授权启动；D1 / D2 / D3 以及 Full Inventory 的
+实际运行仍需遵守对应实施授权和门禁。本次不运行 Pipeline。
+
+### 30.1 Next-stage D1 Implementation Scope
+
+下一阶段 D1 允许实现以下最小链路：
+
+- traversal；
+- deterministic sampling；
+- UUIDv5；
+- SHA-256；
+- PyMuPDF lightweight inspection；
+- page count；
+- PDF metadata；
+- text-layer heuristic；
+- Filename Parsing；
+- Source Consistency Check；
+- `files.parquet`；
+- `duplicate_groups.parquet`；
+- `errors.parquet`；
+- `sample_manifest.json`；
+- `manifest.json`；
+- `statistics.json`。
+
+D1 不要求实现：
+
+- Full Run resume / checkpoint system；
+- D2 / D3；
+- Full Inventory；
+- MinerU；
+- OCR；
+- semantic duplicate；
+- `document_id`；
+- `document_family_id`；
+- Domain classification；
+- database；
+- distributed execution。
+
+D1 的 restartability 只需提供：
+
+~~~text
+immutable run directory
++
+deterministic rerunnable D1 sample
+~~~
+
+真正的 resume / checkpoint 必须在 D2 / D3 前实现并验证。上述内容只定义下一阶段允许的实现边界，
+本次不写代码、不安装 PyMuPDF、不 SSH 执行 D1、不 Hash 真实 PDF。
 
 ## 31. Open Questions
 
-以下问题全部保持 `TBD`，除非后续 Dry-run 提供实证依据：
+以下问题按当前 Design Freeze 更新状态；未冻结的内容继续保持 `TBD`，除非后续 Dry-run 提供实证依据：
 
-1. PDF lightweight library 最终选择 PyMuPDF 还是 pypdf？
-2. `file_instance_id` 最终生成算法？
-3. text-layer heuristic 的 character threshold？
-4. PDF text sampling 是否固定 first / middle / last？
-5. Full Run `worker_count` 最终是多少？
+1. PDF lightweight library：`Resolved for D1: PyMuPDF; Re-evaluate after D2/D3 if necessary`。
+2. `file_instance_id`：`Resolved v0.1: UUIDv5`。
+3. text-layer heuristic 的 character threshold：`Provisional D1: 50 chars/page; Re-evaluate after D2`。
+4. PDF text sampling：`Provisional D1: first / middle / last; Re-evaluate after D2`。
+5. Full Run `worker_count`：`TBD；D1 = 4`。
 6. retry policy？
 7. checkpoint / resume 具体格式？
 8. exact duplicate group representation？
@@ -996,13 +1329,14 @@ D1 / D2 / D3 以及 Full Inventory 均必须等待设计评审和后续实施授
 
 ## 32. Current Progress
 
-本设计文档完成后，项目状态为：
+本次 Minimal Corpus Inventory Pipeline Design Freeze 完成后，项目状态为：
 
 ~~~text
 Current Phase: Phase 1 - Corpus Inventory
 Current Milestone: Corpus Inventory v0.1
-Current Task: Minimal Corpus Inventory Pipeline Design v0.1
-Next Task: Review Minimal Corpus Inventory Pipeline Design, then implement D1 Smoke Test only.
+Current Task: D1 Smoke Test Implementation
+Next Task: Implement local unit tests and remote D1 Smoke Test, then review D1 artifacts before D2.
 ~~~
 
-设计文档评审通过前，不进入 Pipeline Implementation，也不执行 D1 Smoke Test。
+当前只进入 D1 Smoke Test Implementation 准备，不执行 D1 Smoke Test。D1 运行必须在本地单元测试
+和远程执行条件准备完成后进行。
