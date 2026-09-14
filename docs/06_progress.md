@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: D1 Smoke Test Artifact Review
+Current Task: D2 Representative Dry-run Artifact Review
 
 ## Current Status
 
@@ -18,7 +18,7 @@ Current Task: D1 Smoke Test Artifact Review
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: D1 Smoke Test Artifact Review
+- Current Task: D2 Representative Dry-run Artifact Review
 
 ## 当前进展
 
@@ -41,11 +41,15 @@ Current Task: D1 Smoke Test Artifact Review
 - Remote SSH Gate 已通过，hostname 为 `xuelangyun`；Output Path Safety Check 通过后创建 `/data/suzhe/migb`。
 - 完成 Remote D1：Run ID 为 `d1-20260914T060712Z-406473f`，20/20 success、0 partial、0 failed，errors=0，source consistency 全部通过。
 - 完成六个 D1 Artifact 的远程校验及 Mac 临时复核，D1 Verdict: PASS；报告见 `reports/phase1/d1_smoke_test_report.md`。
+- 完成 D1 Gate Closeout，并将 Python package 标准化为可 editable install；Local/Remote pytest 均通过（33 passed）。
+- 完成 Remote D2：Run ID 为 `d2-20260914T062102Z-18a5aad`，目标 200、实际 198，195 success、3 partial、0 failed；D1 样本 20 个全部排除。
+- 完成 D2 六个 Artifact 的远程校验及 Mac 临时复核；确定性采样、Schema、Manifest、Source Consistency 及 D1 Artifact 不变性均通过，D2 Verdict: PASS；报告见 `reports/phase1/d2_representative_dryrun_report.md`。
+- 未执行 D3、Full Inventory、MinerU、OCR、LLM 或 GPU workload。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review D1 implementation and artifacts before authorizing D2 Representative Dry-run.
+Review D2 results and decide D3 Scale Test configuration.
 
 ## 变更记录
 
@@ -64,3 +68,5 @@ Review D1 implementation and artifacts before authorizing D2 Representative Dry-
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成 Design Freeze；下一任务为 D1 Smoke Test Implementation |
 | 2026-09-14 | D1 本地实现与 29 项 Unit Tests 完成并提交；SSH Gate 通过，但远程 Repository checkout 路径未确认，Remote D1 暂缓 |
 | 2026-09-14 | Remote D1 Smoke Test 完成并通过 Artifact Review：20/20 success、0 errors、source consistency 通过；下一任务为 D1 Smoke Test Artifact Review |
+| 2026-09-14 | D1 Gate Closeout 完成；package editable install 标准化；下一任务为 D2 Representative Dry-run |
+| 2026-09-14 | Remote D2 Representative Dry-run 完成并通过 Artifact Review：目标 200、实际 198，195 success、3 partial、0 failed；下一任务为 D2 Representative Dry-run Artifact Review |
