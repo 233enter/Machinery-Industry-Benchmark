@@ -4,9 +4,9 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: Full Corpus Inventory Artifact Review
+Current Task: Candidate Source Corpus Scope Confirmation
 
-Next Task: Review Full Corpus Inventory and close Phase 1 before authorizing Phase 2 Taxonomy Calibration & Source Selection.
+Next Task: Confirm project-wide Candidate Source Corpus scope and complete Phase 1 Gate Review before authorizing Phase 2 Taxonomy Calibration & Source Selection.
 
 ## Current Status
 
@@ -25,7 +25,10 @@ Next Task: Review Full Corpus Inventory and close Phase 1 before authorizing Pha
 - Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory。
 - Full Corpus Inventory: Completed，Run ID 为 `full-20260914T075902Z-faa4565`，60454/60454 文件完成处理，Full Verdict: PASS。
 - Full Inventory Artifact Validation: Passed；Source Snapshot 一致，D1/D2/D3 历史 Artifact 保持不变。
-- Current Task: Full Corpus Inventory Artifact Review
+- `cmes_journal` Full Inventory Gate: Passed。
+- Phase 1 Inventory Engineering Gate: Passed。
+- Project-wide Phase 1 Closeout: Pending Candidate Source Corpus Scope Confirmation。
+- Current Task: Candidate Source Corpus Scope Confirmation
 
 ## 当前进展
 
@@ -59,11 +62,13 @@ Next Task: Review Full Corpus Inventory and close Phase 1 before authorizing Pha
 - D3 六个 Canonical Artifact、Schema、Source Provenance、D1/D2 排除、Source Consistency 和 Artifact checksum 校验通过；D3 Verdict: PASS；报告见 `reports/phase1/d3_scale_test_report.md`。
 - 完成 Remote Full Corpus Inventory：60,454 个文件全量选择并处理，60447 success、7 partial、0 failed；报告见 `reports/phase1/full_inventory_report.md`。
 - Full Run 完成 Artifact Validation；MinerU、OCR、LLM 或 GPU workload 仍未执行。
+- 完成只读 Source Scope Discovery：`/mnt/data_nfs/dataset/original/cmes` 下仅观察到 `journal`；在 `/mnt/data_nfs/dataset/original` 下观察到四个 `books_*` Source Candidate 及一个混合 `all_pipeline` 工作区。
+- 四个 `books_*` 目录合计观察到 2269 个 PDF，但是否属于项目 Candidate Source Corpus 仍为 TBD；项目级 Phase 1 Closeout 暂缓。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review Full Corpus Inventory and close Phase 1 before authorizing Phase 2 Taxonomy Calibration & Source Selection.
+Confirm project-wide Candidate Source Corpus scope and complete Phase 1 Gate Review before authorizing Phase 2 Taxonomy Calibration & Source Selection.
 
 ## 变更记录
 
@@ -88,3 +93,4 @@ Review Full Corpus Inventory and close Phase 1 before authorizing Phase 2 Taxono
 | 2026-09-14 | D3 Scale Test 完成并通过：目标/实际 1000，受控停止与 resume 通过，复用 300 个 checkpoint 记录；D3 Verdict: PASS；下一任务为 D3 Scale Test Artifact Review |
 | 2026-09-14 | D3 Scale Test 和 D3 Gate 通过；Full Inventory Gate: Passed，已授权执行 Full Corpus Inventory；下一任务为 Full Corpus Inventory |
 | 2026-09-14 | Full Corpus Inventory 完成并通过 Artifact Validation：60454/60454 processed，60447 success、7 partial、0 failed，Full Verdict: PASS；下一任务为 Full Corpus Inventory Artifact Review |
+| 2026-09-14 | `cmes_journal` Full Inventory Gate 和 Phase 1 Inventory Engineering Gate 通过；只读 Source Scope Discovery 发现四个 `books_*` 目录及一个混合 `all_pipeline` 工作区，项目级 Phase 1 Closeout Pending Scope Confirmation；下一任务为 Candidate Source Corpus Scope Confirmation |

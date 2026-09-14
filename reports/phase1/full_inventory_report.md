@@ -191,7 +191,7 @@ Full Run 共产生 7 个 Error Rows，全部被保留在 `errors.parquet`，没�
 | Stage | Error category | Count | Parent group |
 | --- | --- | ---: | --- |
 | `pdf_open` | `FileDataError` | 1 | `jixiegongchengxuebao` |
-| `text_sample` | `zero_page_count` | 6 | `jixiegongchengxuebao`（4）；`suxinggongchengxuebao`（3） |
+| `text_sample` | `zero_page_count` | 6 | `jixiegongchengxuebao`（3）；`suxinggongchengxuebao`（3） |
 
 受影响的相对路径如下：
 
