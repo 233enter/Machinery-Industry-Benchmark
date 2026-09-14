@@ -3,7 +3,7 @@
 Project: Mechanical Industry General Benchmark
 Document: Pilot Design
 Version: 0.1
-Status: Draft - Pending Review
+Status: Reviewed - Baseline
 Phase: Phase 0 - Benchmark Design
 Current Task: Pilot Design v0.1
 
@@ -158,6 +158,72 @@ Pilot 不等于 Public Benchmark Release。因此：
 - Pilot Dataset Version 必须被冻结和保存。
 
 任何后续发布策略都必须经过独立的 visibility、rights_status 和 release policy 判断，不能因为 Pilot 已完成就自动发布。
+
+### 5.1 Pilot-to-V1 Isolation Policy
+
+Pilot Benchmark 同时是：
+
+~~~text
+Internal Calibration / Development Dataset
+~~~
+
+Pilot 会被用于查看模型响应、调整构题策略、校准 Difficulty、修改 QA Rule、调整 Evaluator、分析 Broken Item 和决定 V1 Expansion Strategy。因此 Pilot Item 默认已经参与 Benchmark Development。
+
+原则上：
+
+~~~text
+Pilot Dataset
+!=
+Benchmark V1 Private Test Set
+~~~
+
+未来 V1 Private Test 不应简单由 Pilot Item 原样组成。必须避免以下 Development Leakage：
+
+~~~text
+Pilot item repeatedly inspected
+        ↓
+construction / evaluator / prompt tuned
+        ↓
+same item enters private V1 test
+~~~
+
+### 5.2 Source / document-family Isolation
+
+V1 Private Test 的最终隔离策略在 Phase 7 决定。但 Pilot Design v0.1 先规定原则：未来构造 Private Test 时，应优先保证以下来源层关系具有合理隔离：
+
+~~~text
+Pilot calibration source / document family
+vs
+V1 private test source / document family
+~~~
+
+是否必须做到 100% document-family separation 目前保持 TBD，但不能忽略由 Pilot Calibration 造成的 Development Leakage 风险。
+
+### 5.3 Pilot Item Reuse
+
+Pilot Item 未来可以：
+
+- 保留用于内部 Regression Test；
+- 进入 Public Dev / Example Set；
+- 作为 Anchor / Diagnostic Item；
+- 经明确治理后进入某些非私有 Dataset。
+
+但不要默认：
+
+~~~text
+Pilot accepted item
+→ V1 private test
+~~~
+
+如果未来决定复用，至少需要在逻辑上记录：
+
+~~~text
+pilot_reuse_status
+reuse_target
+decision_reason
+~~~
+
+这些字段是否进入正式 Data Schema 后续决定。复用决策必须能够追溯其治理依据、目标 Dataset 和是否存在私有 Test 风险。
 
 ## 6. Sampling Dimensions
 
@@ -587,6 +653,49 @@ Question without Visual Input
 
 Pilot Design v0.1 不设死统一百分比阈值。Pilot 需要先收集真实分布，再决定后续 V1 的诊断阈值或淘汰规则。
 
+### 21.1 Visual Dependency Verdict
+
+visual_dependency_gap 只是诊断信号之一，不能单独决定 Item 是否合格。特别是：
+
+~~~text
+Full = wrong
+Text-only = wrong
+gap = 0
+~~~
+
+不能据此认定视觉不重要，因为两种条件都可能是模型没有解决题目的表现。
+
+最终 Visual Dependency Verdict 至少综合以下三类证据：
+
+#### A. Paired Model Ablation
+
+使用同一个支持视觉的模型，在尽量相同的 Prompt、Generation Config 和 Evaluation Profile 下运行：
+
+~~~text
+Full
+vs
+Text-only
+~~~
+
+保存 paired result，并记录模型、Item、Item Revision、Dataset Version、输入条件和运行版本。
+
+#### B. Human Question-only Solvability Review
+
+Reviewer 检查：如果完全看不到图片，是否能够仅凭以下信息稳定得到答案：
+
+- Question wording；
+- options；
+- 常识；
+- terminology leakage。
+
+该 Review 用于识别题目是否在文本层面已经泄露答案或不需要视觉证据。
+
+#### C. Evidence Necessity Review
+
+确认正确答案所依赖的信息确实存在于 Visual Asset 或 referenced region 中，且题目没有要求模型读取资产中不存在、不可见或不完整的信息。
+
+最终 visual_dependency_check 不能只由单模型单次 Accuracy Gap 决定。自动阈值、证据组合的具体权重和 passed / failed / needs_review 的正式判定规则保持 TBD。
+
 ## 22. Visual Asset Quality
 
 T3 至少检查：
@@ -673,6 +782,22 @@ Domain Expert Resource 当前仍为 TBD。因此 Pilot 采用 risk-based escalat
 
 Pilot 必须记录哪些 Item 被升级到 Expert Review、升级原因和处理结论。
 
+### 25.3 Expert Review Blocking Rule
+
+如果某个 Item 被正式判定为：
+
+~~~text
+expert_review_required
+~~~
+
+而所需的 Domain Expert Review 尚未完成，该 Item 不允许仅因为需要凑够 500 道题而进入 Pilot Snapshot。其状态应保持：
+
+~~~text
+needs_review
+~~~
+
+或者进入 revise、reject、exclude from current snapshot 等受控路径。该规则与“470 high-quality > forced 500”一致，未完成的高风险专家审核不能被数量目标覆盖。
+
 ## 26. Review Risk Level
 
 可以设计逻辑 Review Risk：
@@ -753,6 +878,10 @@ Rejected / Revised Item Registry
 Pilot Dataset Snapshot
 Pilot Dataset Manifest
 Pilot Dataset Card
+Model Panel Manifest
+Pilot Release Candidate Snapshot
+Pilot Validation Decision Policy
+Confirmatory Evaluation Run Manifest
 ~~~
 
 Evaluation 后还产生：
@@ -827,6 +956,26 @@ Pilot Model Panel 的结果首先用于 Calibration，而不是宣布模型排�
 - model capability。
 
 Pilot Design v0.1 不锁死具体模型名称。Baseline / Anchor Models 仍是 Project Decision Point。
+
+### 32.1 Model Panel Freeze Principle
+
+Exploratory Calibration 前，可以根据 availability、cost 和 capability coverage 确定候选模型。但 Confirmatory Validation Run 开始前，必须冻结：
+
+~~~text
+Model Panel Manifest
+~~~
+
+Manifest 至少记录：
+
+- model；
+- model version；
+- model capability；
+- text / multimodal；
+- endpoint / provider class；
+- adapter version；
+- reasoning configuration。
+
+Confirmatory Validation Run 开始后，不能因为某个模型表现“不符合预期”而临时替换模型，并仍将结果称为同一个验证实验。如果必须替换，需记录替换原因、影响范围，并产生新的 Confirmatory Run。
 
 ## 33. Model Panel Selection Criteria
 
@@ -1244,11 +1393,65 @@ Model Panel Evaluation
 Stage P8
 Calibration Analysis
 
+  P8a Exploratory Calibration
+  P8b Revision / Retest
+  P8c Pilot Release Candidate Freeze
+  P8d Confirmatory Validation
+
 Stage P9
 Pilot Review / Expansion Decision
 ~~~
 
 这些是 Pilot 内部 Stage，不要与 Project Phase 0–8 混淆。
+
+### 52.1 Exploratory Calibration 与 Confirmatory Validation
+
+同一轮结果不能同时作为“发现问题的数据”和“最终证明问题已经解决的数据”。Pilot 必须明确区分 Exploratory Pilot Run 与 Confirmatory Validation Run：
+
+~~~text
+Exploratory Pilot Run
+        ↓
+Calibration Analysis
+        ↓
+Item / Rule / Evaluator Revision
+        ↓
+New Item Revision / New Pilot Snapshot
+        ↓
+Pilot Release Candidate Freeze
+        ↓
+Confirmatory Validation Run
+        ↓
+Pilot Validation Review
+        ↓
+GO / GO WITH REVISION / NO-GO
+~~~
+
+#### Exploratory Pilot Run
+
+Exploratory Run 用于：
+
+- 找 Broken Item；
+- 校准 Difficulty；
+- 找 Parser / Evaluator 问题；
+- 找 Visual Dependency 问题；
+- 研究 Source / Construction Method。
+
+Exploratory Run 的结果可以推动对 Item、Difficulty、QA Rule、Construction Rule、Evaluator、Prompt / Adapter 或 Dataset Composition 的修订。修订必须产生可追溯的 Revision、Issue 或新的 Dataset Snapshot，不能直接覆盖原有结果。
+
+#### Confirmatory Validation Run
+
+Confirmatory Run 用于验证修订后的 Pilot Release Candidate 是否真正达到 Pilot Exit Criteria。Confirmatory Run 开始前必须冻结：
+
+- Pilot Dataset Snapshot；
+- Item Revisions；
+- Evaluation Profile；
+- Parser Version；
+- Evaluator Version；
+- Model Panel；
+- Calibration Decision Policy；
+- 适用的 GO / NO-GO 判断标准。
+
+Confirmatory Run 开始后，不得根据单题结果直接修改当前 Snapshot 后继续计算同一个正式结论。如果发生实质修改，必须创建新的 Item Revision、Dataset Snapshot 或 Evaluation Run，并重新验证。
 
 ## 53. Pilot Entry Criteria
 
@@ -1385,6 +1588,26 @@ NO-GO
 - serious contamination。
 
 Decision 必须引用 Calibration Findings、Quality Findings、Failure Patterns 和未决问题，不得只根据 Item 数量决定。
+
+### 58.4 Pilot Validation Decision Policy
+
+Exploratory Calibration 可以帮助项目学习合理的阈值、解释规则和异常处理方式。但在 Confirmatory Validation Run 开始前，必须形成并冻结：
+
+~~~text
+Pilot Validation Decision Policy
+~~~
+
+该 Policy 至少说明：
+
+- Critical Defect policy；
+- Coverage expectations；
+- acceptable unresolved issues；
+- Difficulty / ceiling / floor interpretation；
+- Visual Dependency decision method；
+- Evaluation Infrastructure acceptance；
+- GO / GO WITH REVISION / NO-GO decision logic。
+
+Phase 0 不要求填写具体数值阈值。可以保持 TBD，但不能在看到 Confirmatory Results 后不断移动 GO / NO-GO 标准。任何 Policy 修改都必须发生在新的确认流程之前，并记录版本、原因和影响范围。
 
 ## 59. Pilot Exit Criteria
 
@@ -1640,30 +1863,50 @@ Pilot Design 只定义如何使用这些规范进行 Pilot Validation，不修�
 Project: Mechanical Industry General Benchmark
 Document: Pilot Design
 Version: 0.1
-Status: Draft - Pending Review
+Status: Reviewed - Baseline
 Phase: Phase 0 - Benchmark Design
 Current Task: Pilot Design v0.1
 ~~~
 
-Pilot Design v0.1 需要先经过人工评审。评审通过前，不应把当前文档解释为 Pilot 已经执行，也不应把 Pilot Design 中的目标、示例或 Planning Guidance 当作实验结果或最终 V1 决策。
+Pilot Design v0.1 已完成正式评审后的方法学小修，当前作为 Reviewed - Baseline 使用。但这不表示 Pilot 已经执行，也不应把 Pilot Design 中的目标、示例或 Planning Guidance 当作实验结果或最终 V1 决策。
 
-## 69. 本次不要更新 Progress
+## 69. Phase 0 Final Design Review 与 Progress Transition
 
-本次完成 docs/07_pilot_design.md 后，不修改 docs/06_progress.md。当前 Progress 应继续保持：
+Pilot 小修完成后执行 Phase 0 Cross-document Consistency Review，检查以下七份核心文档：
 
 ~~~text
-Current Phase: Phase 0 - Benchmark Design
-Current Milestone: Benchmark Design v0.1
-Current Task: Pilot Design v0.1
+00_project_charter.md
+01_project_plan.md
+02_benchmark_taxonomy.md
+03_data_specification.md
+04_evaluation_specification.md
+05_system_architecture.md
+07_pilot_design.md
 ~~~
 
-原因是 Pilot Design v0.1 还需要人工评审。只有在后续评审完成后，才根据评审结论更新进度。
+本次 Review 只检查 terminology conflict、phase conflict、Track / score conflict、Item / Snapshot / Revision conflict、Pilot / V1 conflict、TBD 是否被偷偷写成已确定，以及 Phase 1 entry dependency 是否一致。
 
-## 70. 本次不要实现
+本次 Cross-document Consistency Review 未发现阻塞性问题，结论为：
 
-本次不要：
+~~~text
+Phase 0 - Benchmark Design: Completed
+Gate 0: Passed
+~~~
 
-- 开始 Phase 1；
+因此将 docs/06_progress.md 转入：
+
+~~~text
+Current Phase: Phase 1 - Corpus Inventory
+Current Milestone: Corpus Inventory v0.1
+Current Task: Phase 1 Environment & Corpus Intake
+~~~
+
+该状态转换只表示 Phase 0 设计冻结并允许进入 Phase 1 准备，不表示已经扫描 70k PDF、实现 Corpus Inventory、部署 Parser 或调用模型。
+
+## 70. Phase 1 不要直接实现
+
+即使 Gate 0 Passed，本次也不要：
+
 - 扫描 70k PDF；
 - 实现 Corpus Inventory；
 - 创建真实 Pilot Item；
@@ -1684,6 +1927,8 @@ git diff --check
 
 并检查：
 
+- Phase 0 Cross-document Consistency Review 已完成且无 Blocking Issue；
+- Gate 0 已记录为 Passed；
 - Pilot Objectives 已定义；
 - Pilot Sampling Strategy 已定义；
 - Track / Domain / Capability / Difficulty Coverage 已定义；
@@ -1695,7 +1940,7 @@ git diff --check
 - Pilot Gates / Exit Criteria 已定义；
 - Expansion Decision 已定义；
 - Open Questions 保持 TBD；
-- 没有进入 Phase 1；
+- 没有执行 Phase 1 Corpus Inventory Implementation；
 - 没有处理 70k PDF；
 - 没有生成真实 Benchmark Item；
 - 没有调用模型；
@@ -1706,3 +1951,4 @@ git diff --check
 | 版本 | 日期 | 变更说明 |
 | --- | --- | --- |
 | v0.1 | 2026-09-11 | 创建 Pilot Design v0.1，定义 Pilot Validation Experiment、采样、Track 覆盖、Verification / Human Review、Model Panel、Calibration、Pilot Gate、退出标准和 Open Questions；保持 Draft - Pending Review |
+| v0.1 | 2026-09-14 | 根据正式评审完成 Pilot-to-V1 Isolation、Exploratory / Confirmatory Validation、Visual Dependency Verdict、Model Panel Freeze、Expert Review Blocking Rule 和 Pilot Validation Decision Policy 等方法学小修，Status 更新为 Reviewed - Baseline |

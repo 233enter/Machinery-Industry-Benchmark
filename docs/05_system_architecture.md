@@ -1677,7 +1677,7 @@ Current Task: System Architecture v0.1
 - Pilot Benchmark；
 - Reporting Service。
 
-本次评审结论为小修后通过，当前文档作为 Reviewed - Baseline 使用。但这不表示后续阶段的工程实现已经完成，也不表示已经开始 Pilot Design 或其他数据、模型和评测实现工作。
+本次评审结论为小修后通过，当前文档作为 Reviewed - Baseline 使用。但这不表示后续阶段的工程实现已经完成；后续设计文档和实施工作仍以 docs/06_progress.md 及相应 Gate 为准。
 
 ## 39. Repository Hygiene 与检查要求
 

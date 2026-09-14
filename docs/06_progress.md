@@ -1,10 +1,10 @@
 # 项目进度
 
-Current Phase: Phase 0 - Benchmark Design
+Current Phase: Phase 1 - Corpus Inventory
 
-Current Milestone: Benchmark Design v0.1
+Current Milestone: Corpus Inventory v0.1
 
-Current Task: Pilot Design v0.1
+Current Task: Phase 1 Environment & Corpus Intake
 
 ## Current Status
 
@@ -15,9 +15,10 @@ Current Task: Pilot Design v0.1
 - Data Specification v0.1: Completed
 - Evaluation Specification v0.1: Completed
 - System Architecture v0.1: Completed
-- Current Phase: Phase 0 - Benchmark Design
-- Current Milestone: Benchmark Design v0.1
-- Current Task: Pilot Design v0.1
+- Pilot Design v0.1: Completed
+- Current Phase: Phase 1 - Corpus Inventory
+- Current Milestone: Corpus Inventory v0.1
+- Current Task: Phase 1 Environment & Corpus Intake
 
 ## 当前进展
 
@@ -28,12 +29,14 @@ Current Task: Pilot Design v0.1
 - 完成 Data Specification v0.1 首次正式评审后的结构性小修。
 - 完成 Evaluation Specification v0.1 首次正式评审后的结构性小修。
 - 完成 System Architecture v0.1 正式评审后的小范围修订，状态为 Reviewed - Baseline。
+- 完成 Pilot Design v0.1 正式评审后的方法学小修，状态为 Reviewed - Baseline。
+- 完成 Phase 0 Cross-document Consistency Review，未发现阻塞性问题，Gate 0: Passed。
 - 完成设计文档结构和说明占位。
 - 暂未实现 PDF 解析、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-设计 `docs/07_pilot_design.md`。
+Collect runtime environment and Candidate Source Corpus information, then design and implement the minimal Corpus Inventory pipeline.
 
 ## 变更记录
 
@@ -46,3 +49,4 @@ Current Task: Pilot Design v0.1
 | 2026-09-11 | Data Specification v0.1 完成，下一任务为 Evaluation Specification v0.1 |
 | 2026-09-11 | Evaluation Specification v0.1 完成，下一任务为 System Architecture v0.1 |
 | 2026-09-11 | System Architecture v0.1 完成并通过正式评审，下一任务为 Pilot Design v0.1 |
+| 2026-09-14 | Pilot Design v0.1 完成并通过正式评审，Phase 0 Cross-document Consistency Review 无阻塞问题，Gate 0: Passed；下一任务为 Phase 1 Environment & Corpus Intake |
