@@ -3,35 +3,44 @@
 Project: Mechanical Industry General Benchmark
 Phase: Phase 1 - Corpus Inventory
 Milestone: Corpus Inventory v0.1
-Report Status: Remote D1 Not Run - Awaiting Repository Path
+Report Status: Remote D1 Completed
 
 ## 1. Run Identity
 
 | Field | Value |
 | --- | --- |
-| Run ID | Not generated; Remote D1 was not started |
-| Local Git Commit | `5f8ecb3` |
+| Run ID | `d1-20260914T060712Z-406473f` |
+| Remote Git Commit | `406473f50df711da1f838642839a07f8209072b3` |
+| Remote Repository | `/data/suzhe/Machinery-Industry-Benchmark` |
 | Remote Host | `xuelangyun` |
 | SSH Alias | `migb` |
 | Source Root | `/mnt/data_nfs/dataset/original/cmes/journal` |
 | MIGB_DATA_ROOT | `/data/suzhe/migb` |
 
-The local implementation and tests were completed from commit `5f8ecb3`. The remote SSH Gate
-returned `xuelangyun`. A project checkout was not found in the inspected remote locations, and no
-safe target directory for cloning was provided or established. Therefore no remote run was started.
+The local implementation was committed in `5f8ecb3` and the report/progress baseline in `406473f`.
+The remote checkout contains both commits and was clean before the run. The initial HTTPS clone was
+not available because the remote server had no GitHub credentials; the exact local Git checkout was
+synchronized to the confirmed remote repository path without using a password.
 
-## 2. Intended D1 Configuration
+## 2. Remote Environment and D1 Configuration
 
 | Field | Value |
 | --- | --- |
 | Sample method | `first_by_sorted_relative_path_per_parent_group` |
-| Intended sample count | 20 PDFs |
+| Sample count | 20 PDFs |
 | Worker count | 4 |
 | PDF baseline | PyMuPDF lightweight inspection |
+| Remote Python | 3.10.12 |
+| PyMuPDF | 1.28.2 |
+| PyArrow | 21.0.0 |
+| PyYAML | 6.0.3 |
+| Discovered PDF count | 60,454 |
 | Source access policy | read-only |
+| `/data` filesystem | ext4 |
+| `/data` available at preflight | 2,952,689,577,984 bytes |
 
-The intended values come from `configs/environments/xuelangyun.yaml`. They are not remote run
-results.
+Configuration was loaded from `configs/environments/xuelangyun.yaml`. The run used the configured
+`MIGB_DATA_ROOT` and `worker_count=4`.
 
 ## 3. Local Validation
 
@@ -41,42 +50,83 @@ results.
   including zero-row `errors.parquet` and `duplicate_groups.parquet` cases.
 - Local tests covered source/output path overlap rejection and source file list preservation.
 
-## 4. Remote D1 Results
+## 4. Remote Status Results
 
-The following fields are not applicable because Remote D1 did not run:
+| `inventory_status` | Count |
+| --- | ---: |
+| `success` | 20 |
+| `partial` | 0 |
+| `failed` | 0 |
 
-- Sample Count: N/A
-- Success / Partial / Failure: N/A
-- Errors: N/A
-- Throughput and Total Bytes: N/A
-- PDF Status and Text-layer Distribution: N/A
-- Filename Parse Distribution: N/A
-- Exact Duplicates: N/A
-- Remote Artifact Validation: N/A
-- Source Consistency Result: N/A
+`processed_count=20` and `sampled_count=20`. All sampled records had
+`source_changed_during_run=false`.
 
-No `/data/suzhe/migb` directory was created, and no remote Artifact Directory exists for this
-attempt.
+## 5. Errors, PDF, Text-layer, and Filename Results
 
-## 5. Blocker and Required Action
+| Result | Distribution |
+| --- | --- |
+| Error count | 0 |
+| Error categories | None |
+| `pdf_status` | `valid`: 20; `encrypted`: 0 |
+| `pdf_open_status` | `success`: 20; `failed`: 0 |
+| `text_layer_status` | `text_present`: 15; `text_absent`: 5; `mixed_or_uncertain`: 0; `check_failed`: 0 |
+| `filename_parse_status` | `matched`: 16; `unmatched`: 4; `error`: 0 |
+| Exact duplicate groups | 0 |
+| Exact duplicate files | 0 |
 
-The remote server does not currently expose a confirmed checkout of this project in the inspected
-locations. The repository path must be confirmed before the local commit can be synchronized and
-the D1 CLI can be run. The implementation does not guess a clone target and does not place the Git
-checkout under `MIGB_DATA_ROOT` without an explicit path decision.
+`errors.parquet` and `duplicate_groups.parquet` both contain zero rows with their fixed schemas.
+`text_absent` records were treated as observed Corpus signals, not as Pipeline failures.
 
-Required before Remote D1:
+## 6. Throughput
 
-1. Confirm the remote Git Repository checkout path, or explicitly authorize a target directory for
-   cloning from the configured Git remote.
-2. Synchronize/checkout commit `5f8ecb3` in that repository.
-3. Verify the project-local Python environment and dependencies.
-4. Re-run the Output Path Safety Check and confirm `/data/suzhe` is writable.
-5. Run only D1 with 20 sampled PDFs and 4 workers, then validate all six artifacts.
+| Metric | Value |
+| --- | ---: |
+| Total bytes | 89,691,213 |
+| Wall time | 4.903361081145704 s |
+| Files/sec | 4.0788348377816925 |
+| MiB/sec | 17.444402896275435 |
 
-## 6. D1 Verdict
+## 7. Source Safety and Consistency
 
-**NOT RUN — BLOCKED BY UNCONFIRMED REMOTE REPOSITORY PATH**
+- Output Path Safety Check passed before any output directory was created.
+- `/data/suzhe` was writable and `/data/suzhe/migb` was created only after the safety check.
+- Source Root remained `/mnt/data_nfs/dataset/original/cmes/journal` with read-only operational policy.
+- No Source PDF was renamed, moved, OCR'd, parsed by MinerU, or written to by this run.
+- Current size/mtime of all 20 sampled files matched the recorded pre-task values; external mismatch
+  count was 0.
 
-This is an execution blocker, not a judgment on the D1 implementation or the real Candidate Source
-Corpus. Current project progress remains `D1 Smoke Test Implementation`.
+## 8. Artifact Validation
+
+Artifact directory:
+
+```text
+/data/suzhe/migb/inventory/runs/d1-20260914T060712Z-406473f
+```
+
+All six required Artifacts exist and are readable:
+
+| Artifact | Validation |
+| --- | --- |
+| `files.parquet` | 20 rows; explicit Schema passed |
+| `duplicate_groups.parquet` | 0 rows; explicit Schema passed |
+| `errors.parquet` | 0 rows; explicit Schema passed |
+| `sample_manifest.json` | JSON valid; 20 items; sampling method passed |
+| `manifest.json` | Required fields passed; `dirty=false`; host and commit passed |
+| `statistics.json` | Counts and throughput fields passed |
+
+The manifest records `hostname=xuelangyun`, `git_commit=406473f...`, `dirty=false`,
+`source_safety_check=passed`, and `worker_count=4`. The full six-Artifact directory was copied to a
+Mac temporary directory for review and was not added to Git.
+
+## 9. Issues and Required Fixes
+
+No D1 correctness, safety, accounting, schema, provenance, or Source Consistency issue was found.
+The CLI was invoked with `PYTHONPATH=src` because the remote `.venv` contains dependencies but does
+not install the package as a site-package; this is an operational invocation note, not an Artifact
+failure. Before D2, package installation or the invocation convention should be standardized.
+
+No blocking fix is required before D1 acceptance. D2 remains unauthorized in this task.
+
+## 10. D1 Verdict
+
+**PASS**

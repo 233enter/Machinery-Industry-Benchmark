@@ -4,7 +4,7 @@ Current Phase: Phase 1 - Corpus Inventory
 
 Current Milestone: Corpus Inventory v0.1
 
-Current Task: D1 Smoke Test Implementation
+Current Task: D1 Smoke Test Artifact Review
 
 ## Current Status
 
@@ -18,7 +18,7 @@ Current Task: D1 Smoke Test Implementation
 - Pilot Design v0.1: Completed
 - Current Phase: Phase 1 - Corpus Inventory
 - Current Milestone: Corpus Inventory v0.1
-- Current Task: D1 Smoke Test Implementation
+- Current Task: D1 Smoke Test Artifact Review
 
 ## 当前进展
 
@@ -37,12 +37,15 @@ Current Task: D1 Smoke Test Implementation
 - 完成设计文档结构和说明占位。
 - 完成 D1 最小实现、Local synthetic/tiny PDF Unit Tests，以及本地 D1 Artifact 写入验证。
 - Local Unit Test 结果：29 passed；本地 commit：`5f8ecb3`。
-- Remote SSH Gate 已通过，hostname 为 `xuelangyun`；但尚未确认本项目的远程 Git Repository checkout 路径，因此未 clone、未创建 `/data/suzhe/migb`、未运行 Remote D1。
+- 已确认并建立远程 Git Repository：`/data/suzhe/Machinery-Industry-Benchmark`；Remote HEAD 为 `406473f`，正式运行前 `dirty=false`。
+- Remote SSH Gate 已通过，hostname 为 `xuelangyun`；Output Path Safety Check 通过后创建 `/data/suzhe/migb`。
+- 完成 Remote D1：Run ID 为 `d1-20260914T060712Z-406473f`，20/20 success、0 partial、0 failed，errors=0，source consistency 全部通过。
+- 完成六个 D1 Artifact 的远程校验及 Mac 临时复核，D1 Verdict: PASS；报告见 `reports/phase1/d1_smoke_test_report.md`。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Confirm the remote repository checkout path, then run Remote D1 Smoke Test and review its artifacts before D2.
+Review D1 implementation and artifacts before authorizing D2 Representative Dry-run.
 
 ## 变更记录
 
@@ -60,3 +63,4 @@ Confirm the remote repository checkout path, then run Remote D1 Smoke Test and r
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成初稿；下一任务为评审设计并仅实现 D1 Smoke Test |
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成 Design Freeze；下一任务为 D1 Smoke Test Implementation |
 | 2026-09-14 | D1 本地实现与 29 项 Unit Tests 完成并提交；SSH Gate 通过，但远程 Repository checkout 路径未确认，Remote D1 暂缓 |
+| 2026-09-14 | Remote D1 Smoke Test 完成并通过 Artifact Review：20/20 success、0 errors、source consistency 通过；下一任务为 D1 Smoke Test Artifact Review |
