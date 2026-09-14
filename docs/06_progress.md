@@ -35,11 +35,14 @@ Current Task: D1 Smoke Test Implementation
 - 确认 Candidate Source Corpus 位于 NFS4 `rw` mount，但按项目策略作为 read-only input；`/data` 可写，`/data-ssd` 不可写。
 - 完成 Minimal Corpus Inventory Pipeline Design v0.1 Design Freeze，冻结 D1 的 PyMuPDF、UUIDv5、采样、Text-layer Heuristic、Status Semantics、Source Consistency、Duplicate Representation 和 4 workers 基线。
 - 完成设计文档结构和说明占位。
-- 暂未实现 PDF 解析、模型调用、数据生成或评测代码。
+- 完成 D1 最小实现、Local synthetic/tiny PDF Unit Tests，以及本地 D1 Artifact 写入验证。
+- Local Unit Test 结果：29 passed；本地 commit：`5f8ecb3`。
+- Remote SSH Gate 已通过，hostname 为 `xuelangyun`；但尚未确认本项目的远程 Git Repository checkout 路径，因此未 clone、未创建 `/data/suzhe/migb`、未运行 Remote D1。
+- 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Implement local unit tests and remote D1 Smoke Test, then review D1 artifacts before D2.
+Confirm the remote repository checkout path, then run Remote D1 Smoke Test and review its artifacts before D2.
 
 ## 变更记录
 
@@ -56,3 +59,4 @@ Implement local unit tests and remote D1 Smoke Test, then review D1 artifacts be
 | 2026-09-14 | Environment & Candidate Source Corpus Intake Closeout 完成；下一任务为 Minimal Corpus Inventory Pipeline Design v0.1 |
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成初稿；下一任务为评审设计并仅实现 D1 Smoke Test |
 | 2026-09-14 | Minimal Corpus Inventory Pipeline Design v0.1 完成 Design Freeze；下一任务为 D1 Smoke Test Implementation |
+| 2026-09-14 | D1 本地实现与 29 项 Unit Tests 完成并提交；SSH Gate 通过，但远程 Repository checkout 路径未确认，Remote D1 暂缓 |
