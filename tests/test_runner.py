@@ -7,7 +7,7 @@ import pyarrow.parquet as pq
 
 from migb.inventory.artifacts import ARTIFACT_NAMES
 from migb.inventory.config import EnvironmentConfig, InventorySettings, SourceRootConfig
-from migb.inventory.runner import run_d1
+from migb.inventory.runner import run_d1, run_d2
 from migb.inventory.schema import duplicate_groups_schema, errors_schema, files_schema
 
 
@@ -88,3 +88,62 @@ def test_run_d1_writes_six_artifacts_and_captures_pdf_failure(
         if path.is_file()
     )
     assert source_files_after == source_files_before
+
+
+def test_run_d2_excludes_d1_sample_and_records_sampling_metadata(
+    tmp_path: Path, make_pdf, long_text: str
+) -> None:
+    source_root = tmp_path / "source"
+    output_root = tmp_path / "derived"
+    for group_index in range(2):
+        group = source_root / f"group-{group_index:02d}"
+        for file_index in range(11):
+            make_pdf(
+                group / f"item-{file_index:02d}.pdf",
+                [long_text + f" group {group_index} item {file_index}"],
+            )
+
+    config = EnvironmentConfig(
+        source_roots=(SourceRootConfig("cmes_journal", source_root),),
+        migb_data_root=output_root,
+        inventory=InventorySettings(worker_count=4, text_page_char_threshold=50),
+    )
+    d1_result = run_d1(
+        config,
+        repo_root=Path(__file__).parents[1],
+        run_id="d1-local-isolation",
+    )
+    d1_manifest_before = (d1_result.run_directory / "sample_manifest.json").read_bytes()
+
+    d2_result = run_d2(
+        config,
+        prior_run_id=d1_result.run_id,
+        repo_root=Path(__file__).parents[1],
+        run_id="d2-local-isolation",
+    )
+
+    d1_sample_ids = {
+        item["file_instance_id"]
+        for item in json.loads(d1_manifest_before.decode("utf-8"))["items"]
+    }
+    d2_sample = json.loads((d2_result.run_directory / "sample_manifest.json").read_text())
+    assert d2_sample["sampling_stage"] == "d2"
+    assert d2_sample["sampling_method"] == (
+        "evenly_spaced_sorted_relative_path_per_parent_group_excluding_d1"
+    )
+    assert d2_sample["excluded_prior_run_id"] == "d1-local-isolation"
+    assert d2_sample["excluded_prior_sample_count"] == 2
+    assert d2_sample["excluded_prior_sample_found_count"] == 2
+    assert d2_sample["excluded_prior_sample_missing_count"] == 0
+    assert d2_sample["target_sample_count"] == 20
+    assert d2_sample["actual_sample_count"] == 20
+    assert len(d2_sample["items"]) == 20
+    assert not d1_sample_ids & {
+        item["file_instance_id"] for item in d2_sample["items"]
+    }
+    assert [item["actual_count"] for item in d2_sample["per_group_sample_count"]] == [10, 10]
+    assert d2_result.manifest["processed_count"] == 20
+    assert d2_result.manifest["actual_sample_count"] == 20
+    assert d2_result.statistics["successful_files"] == 20
+    assert d2_result.statistics["error_count"] == 0
+    assert (d1_result.run_directory / "sample_manifest.json").read_bytes() == d1_manifest_before

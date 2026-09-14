@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import importlib.metadata
-import os
+import json
 import platform
 import socket
 import subprocess
@@ -22,7 +22,7 @@ from .hashing import sha256_file
 from .identity import file_instance_id
 from .pdf_inspector import inspect_pdf
 from .safety import SafetyError, assert_output_path_safe
-from .sampling import D1Sample, select_d1
+from .sampling import D1Sample, D2Sample, select_d1, select_d2
 from .schema import INVENTORY_SCHEMA_VERSION
 
 
@@ -230,15 +230,9 @@ class D1RunResult:
     statistics: dict[str, Any]
 
 
-def run_d1(
-    config: EnvironmentConfig,
-    repo_root: str | Path = ".",
-    run_id: str | None = None,
-) -> D1RunResult:
-    """Run D1 for the configured Source Roots and write all six Artifacts."""
-
+def _active_roots_and_safe_output(config: EnvironmentConfig) -> tuple[list[Any], Path]:
     if config.inventory.worker_count != 4:
-        raise PipelineError("D1 requires inventory.worker_count = 4")
+        raise PipelineError("D1/D2 requires inventory.worker_count = 4")
     active_roots = [root for root in config.source_roots if root.enabled]
     if not active_roots:
         raise PipelineError("no enabled source roots")
@@ -251,6 +245,134 @@ def run_d1(
         [source_root.path for source_root in active_roots],
         config.migb_data_root,
     )
+    return active_roots, output_root
+
+
+def _discover_active_roots(active_roots: list[Any]) -> list[DiscoveredFile]:
+    discovered: list[DiscoveredFile] = []
+    for source_root in active_roots:
+        try:
+            discovered.extend(discover_pdfs(source_root.source_root_id, source_root.path))
+        except DiscoveryError as exc:
+            raise PipelineError(str(exc)) from exc
+    return discovered
+
+
+def _load_prior_sample_ids(config: EnvironmentConfig, prior_run_id: str) -> set[str]:
+    """Load and validate the D1 sample identities used to isolate D2."""
+
+    if not prior_run_id or Path(prior_run_id).name != prior_run_id or not prior_run_id.startswith("d1-"):
+        raise PipelineError("prior_run_id must be a simple D1 run ID")
+
+    manifest_path = (
+        config.migb_data_root
+        / "inventory"
+        / "runs"
+        / prior_run_id
+        / "sample_manifest.json"
+    )
+    try:
+        with manifest_path.open("r", encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError(f"cannot read prior D1 sample manifest {manifest_path}: {exc}") from exc
+
+    if not isinstance(manifest, dict) or manifest.get("inventory_run_id") != prior_run_id:
+        raise PipelineError("prior sample manifest inventory_run_id does not match prior_run_id")
+    items = manifest.get("items")
+    if not isinstance(items, list):
+        raise PipelineError("prior sample manifest items must be a list")
+
+    excluded_ids: set[str] = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or not isinstance(item.get("file_instance_id"), str):
+            raise PipelineError(f"prior sample manifest item {index} has no file_instance_id")
+        excluded_ids.add(item["file_instance_id"])
+    if not excluded_ids:
+        raise PipelineError("prior D1 sample manifest contains no file_instance_id values")
+    return excluded_ids
+
+
+def _sample_manifest(
+    stage: str,
+    run_id: str,
+    active_roots: list[Any],
+    discovered: list[DiscoveredFile],
+    sample: D1Sample | D2Sample,
+    excluded_file_instance_ids: set[str],
+    prior_run_id: str | None,
+) -> dict[str, Any]:
+    manifest: dict[str, Any] = {
+        "inventory_run_id": run_id,
+        "source_root_id": active_roots[0].source_root_id if len(active_roots) == 1 else None,
+        "sampling_method": sample.sampling_method,
+        "sample_count": len(sample.items),
+        "items": [
+            {
+                "source_root_id": item.source_root_id,
+                "parent_group": item.parent_group,
+                "file_instance_id": file_instance_id(item.source_root_id, item.relative_path),
+                "relative_path": item.relative_path,
+            }
+            for item in sample.items
+        ],
+    }
+    if stage != "d2":
+        return manifest
+
+    if not isinstance(sample, D2Sample):
+        raise PipelineError("D2 sample must use D2Sample metadata")
+    discovered_ids = {
+        file_instance_id(item.source_root_id, item.relative_path) for item in discovered
+    }
+    manifest.update(
+        {
+            "sampling_stage": "d2",
+            "sampling_method": sample.sampling_method,
+            "excluded_prior_run_id": prior_run_id,
+            "excluded_prior_sample_count": len(excluded_file_instance_ids),
+            "excluded_prior_sample_found_count": len(
+                excluded_file_instance_ids & discovered_ids
+            ),
+            "excluded_prior_sample_missing_count": len(
+                excluded_file_instance_ids - discovered_ids
+            ),
+            "target_sample_count": sample.target_sample_count,
+            "actual_sample_count": sample.actual_sample_count,
+            "target_per_group_count": sample.target_per_group,
+            "per_group_sample_count": [
+                {
+                    "source_root_id": source_root_id,
+                    "parent_group": parent_group,
+                    "target_count": sample.target_per_group,
+                    "actual_count": actual_count,
+                }
+                for source_root_id, parent_group, actual_count in sample.per_group_sample_count
+            ],
+        }
+    )
+    for item in manifest["items"]:
+        item["sampling_method"] = sample.sampling_method
+    return manifest
+
+
+def _run_stage(
+    config: EnvironmentConfig,
+    stage: str,
+    repo_root: str | Path = ".",
+    run_id: str | None = None,
+    prior_run_id: str | None = None,
+) -> D1RunResult:
+    """Run one deterministic inventory dry-run stage and write all six Artifacts."""
+
+    if stage not in {"d1", "d2"}:
+        raise PipelineError(f"unsupported inventory stage: {stage}")
+    active_roots, output_root = _active_roots_and_safe_output(config)
+    excluded_file_instance_ids = (
+        _load_prior_sample_ids(config, prior_run_id) if stage == "d2" and prior_run_id else set()
+    )
+    if stage == "d2" and not prior_run_id:
+        raise PipelineError("D2 requires prior_run_id")
 
     started_at = _utc_now()
     started_clock = time.perf_counter()
@@ -259,18 +381,15 @@ def run_d1(
     if run_id is None:
         git_suffix = git_commit[:7] if git_commit != "unknown" else "unknown"
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        run_id = f"d1-{timestamp}-{git_suffix}"
+        run_id = f"{stage}-{timestamp}-{git_suffix}"
 
     run_directory = create_run_directory(output_root, run_id)
 
-    discovered: list[DiscoveredFile] = []
-    for source_root in active_roots:
-        try:
-            discovered.extend(discover_pdfs(source_root.source_root_id, source_root.path))
-        except DiscoveryError as exc:
-            raise PipelineError(str(exc)) from exc
-
-    sample: D1Sample = select_d1(discovered)
+    discovered = _discover_active_roots(active_roots)
+    if stage == "d1":
+        sample: D1Sample | D2Sample = select_d1(discovered)
+    else:
+        sample = select_d2(discovered, excluded_file_instance_ids)
     tasks = [
         _task_for(item, config.inventory.text_page_char_threshold, run_id)
         for item in sample.items
@@ -300,21 +419,15 @@ def run_d1(
         )
     )
     duplicate_rows = group_exact_duplicates(file_records)
-    sample_manifest = {
-        "inventory_run_id": run_id,
-        "source_root_id": active_roots[0].source_root_id if len(active_roots) == 1 else None,
-        "sampling_method": sample.sampling_method,
-        "sample_count": len(tasks),
-        "items": [
-            {
-                "source_root_id": item.source_root_id,
-                "parent_group": item.parent_group,
-                "file_instance_id": file_instance_id(item.source_root_id, item.relative_path),
-                "relative_path": item.relative_path,
-            }
-            for item in sample.items
-        ],
-    }
+    sample_manifest = _sample_manifest(
+        stage,
+        run_id,
+        active_roots,
+        discovered,
+        sample,
+        excluded_file_instance_ids,
+        prior_run_id,
+    )
 
     finished_at = _utc_now()
     wall_time_seconds = time.perf_counter() - started_clock
@@ -375,6 +488,24 @@ def run_d1(
         "worker_count": config.inventory.worker_count,
         "output_artifacts": list(ARTIFACT_NAMES),
     }
+    if stage == "d2":
+        manifest.update(
+            {
+                "sampling_stage": "d2",
+                "target_sample_count": sample_manifest["target_sample_count"],
+                "actual_sample_count": sample_manifest["actual_sample_count"],
+                "target_per_group_count": sample_manifest["target_per_group_count"],
+                "per_group_sample_count": sample_manifest["per_group_sample_count"],
+                "excluded_prior_run_id": prior_run_id,
+                "excluded_prior_sample_count": sample_manifest["excluded_prior_sample_count"],
+                "excluded_prior_sample_found_count": sample_manifest[
+                    "excluded_prior_sample_found_count"
+                ],
+                "excluded_prior_sample_missing_count": sample_manifest[
+                    "excluded_prior_sample_missing_count"
+                ],
+            }
+        )
     write_d1_artifacts(
         run_directory,
         file_records,
@@ -389,4 +520,31 @@ def run_d1(
         run_directory=run_directory,
         manifest=manifest,
         statistics=statistics,
+    )
+
+
+def run_d1(
+    config: EnvironmentConfig,
+    repo_root: str | Path = ".",
+    run_id: str | None = None,
+) -> D1RunResult:
+    """Run D1 for the configured Source Roots and write all six Artifacts."""
+
+    return _run_stage(config, "d1", repo_root=repo_root, run_id=run_id)
+
+
+def run_d2(
+    config: EnvironmentConfig,
+    prior_run_id: str,
+    repo_root: str | Path = ".",
+    run_id: str | None = None,
+) -> D1RunResult:
+    """Run D2 while excluding File Instances recorded by a prior D1 run."""
+
+    return _run_stage(
+        config,
+        "d2",
+        repo_root=repo_root,
+        run_id=run_id,
+        prior_run_id=prior_run_id,
     )
