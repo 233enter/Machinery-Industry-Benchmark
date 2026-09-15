@@ -1,0 +1,20 @@
+input:
+  inventory_run_id: full-20260914T075902Z-faa4565
+  inventory_root: /data/suzhe/migb/inventory/runs/full-20260914T075902Z-faa4565
+  source_root: /mnt/data_nfs/dataset/original/cmes/journal
+
+migb_data_root: /data/suzhe/migb
+
+sampling:
+  main_target: 600
+  base_quota_per_parent_group: 15
+  audit:
+    source_quality_exception: all
+    text_absent_target: 60
+    mixed_text_target: 40
+    filename_unmatched_target: 60
+
+evidence:
+  page_indices: [0, 1, 2]
+  max_extracted_chars: 12000
+  worker_count: 4
