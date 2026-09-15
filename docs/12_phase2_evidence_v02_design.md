@@ -3,9 +3,9 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Evidence v0.2 Design
 Version: 0.2
-Status: Diagnostic Design Only - Full Gate 2B Re-run Not Authorized
+Status: Diagnostic Design Only - v0.3 Fallback Diagnostic Completed Separately
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2B Evidence Contract Revision
+Current Task: Gate 2B Evidence v0.3 Implementation
 
 ## 1. Background
 
@@ -256,8 +256,10 @@ Primary extractor：
 - 不对所有 767 items 进行双重抽取；
 - 不将失败项绕过 review queue 送入 Gate 2C。
 
-如果 v0.3 最终需要 visual/OCR fallback，必须另行定义 OCR 工具、触发条件、成本边界、
-provenance 和质量复核，不在本 Contract 中臆定。
+Evidence v0.3 已在独立诊断中完成 RapidOCR CPU fallback 的验证，并冻结了当前诊断范围内
+的 fallback strategy；本文件仍只定义 v0.2 的诊断设计，不把 v0.3 fallback 回写成 v0.2
+Production Runtime。v0.3 的生产触发条件、成本边界、provenance 和质量复核以
+`docs/13_phase2_evidence_v03_visual_ocr_fallback.md` 为准。
 
 ## 12. Quality Signals
 
@@ -319,11 +321,11 @@ provenance 字段和 `evidence_page_indices` 的基础上增加：
 2. 复用同一 767 个 `calibration_item_id`、`file_instance_id` 和 pool membership；
 3. 不重新抽样，不覆盖 v0.1 Run，使用新的 run directory 和 manifest；
 4. 运行前后验证 Source PDF size/mtime 不变；
-5. 待 Evidence v0.3 visual/OCR contract 批准后，对 quality-risk item 决定是否调用 fallback；
+5. 复用已完成诊断的 Evidence v0.3 visual/OCR fallback strategy，对 quality-risk item 决定是否调用 fallback；
 6. 使用与本次完全相同的 20 个 Main Review Item 进行 paired Gate 2B Evidence Review；
 7. 同时报告 Main、Short、Truncated、Encoding/Garbled、Mixed Text 和
    Filename-unmatched Review；
-8. 如果仍需 visual/OCR，先完成 Evidence v0.3 Design，不得以 OCR 全量处理绕过 Gate。
+8. 如果仍需调整 visual/OCR 生产 contract，先完成独立设计和授权，不得以 OCR 全量处理绕过 Gate。
 
 ## 15. Acceptance Criteria
 
@@ -347,8 +349,8 @@ Evidence v0.2 后续只有在以下条件同时满足时，才可作为 Gate 2C 
 以下问题仍为 TBD，不在本次设计中擅自决定：
 
 1. 4 个问题 PDF 的乱码究竟来自嵌入字体映射、PDF 内部编码，还是 extraction library 行为？
-2. Evidence v0.3 是否采用 OCR、visual crop、其他 PDF text extractor，或组合 routing？
-3. 视觉/OCR fallback 的触发条件、成本上限和人工复核比例如何定义？
+2. Evidence v0.3 生产运行的 OCR trigger、成本上限和人工复核比例如何在更大样本上定义？
+3. 当前已验证的 RapidOCR fallback 是否需要增加 visual crop 或其他 PDF text extractor？
 4. `pdftotext -layout` 是否保留为正式 fallback，还是仅作为诊断工具？
 5. v0.2 quality signals 是否需要在更大样本上校准 routing threshold？
 6. unresolved Evidence 是否允许进入后续 calibration audit，还是必须先完成 v0.3？
@@ -359,13 +361,15 @@ Evidence v0.2 后续只有在以下条件同时满足时，才可作为 Gate 2C 
 结果支持“文本覆盖增加和 Poppler fallback 均不足以解决当前乱码样本”的结论，但不构成
 Gate 2B 通过、Domain Taxonomy 冻结或 Gate 2C 授权。
 
-当前停止在：
+当前停止在 v0.2 文档自身的设计边界；Evidence v0.3 已完成固定 8-file diagnostic，但
+Full Gate 2B Runtime 仍未授权。当前状态为：
 
 ```text
 Evidence v0.2 diagnostic design only
 Full Gate 2B rerun not authorized
 Gate 2B HOLD
 No full 767-item rerun
-No OCR / MinerU
+No v0.2 OCR / MinerU Runtime
+Evidence v0.3 diagnostic completed; fallback strategy frozen separately
 No LLM Taxonomy Annotation
 ```

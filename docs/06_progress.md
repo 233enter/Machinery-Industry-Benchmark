@@ -4,9 +4,9 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2B Evidence Contract Revision
+Current Task: Gate 2B Evidence v0.3 Implementation
 
-Next Task: Decide and provision the minimal Chinese OCR dependency for Evidence v0.3 diagnostic validation.
+Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
 
 ## Current Status
 
@@ -32,15 +32,16 @@ Next Task: Decide and provision the minimal Chinese OCR dependency for Evidence 
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2B Evidence Contract Revision
+- Current Task: Gate 2B Evidence v0.3 Implementation
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
 - Gate 2B Formal Verdict: PASS WITH EVIDENCE REVISION；Evidence Contract v0.1 暂不作为 Gate 2C 的统一输入。
 - Gate 2B Evidence v0.2 Diagnostic Probe: Completed；Problem Set 4、Control Set 4，Probe B/C 均未将问题项提升到 sufficient，8 个 Source PDF size/mtime 均未变化。
 - Evidence v0.2 Diagnostic Design: Completed；仅为诊断设计，不授权 Full Gate 2B rerun；`pdftotext` 保持 diagnostic-only。
-- Evidence v0.3 OCR Runtime Capability Check: Completed；Tesseract、`chi_sim`/`eng` 和已检查的 Python OCR modules 均 unavailable。
-- Evidence v0.3 OCR Diagnostic: Blocked；未执行 render/OCR，需先决定并提供最小中文 OCR dependency。
+- Evidence v0.3 OCR Runtime Capability Check: Completed；远程 `.venv` 已验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2` 和 `CPUExecutionProvider`。
+- Evidence v0.3 OCR Diagnostic: Completed；固定 8-item Diagnostic Set 已完成原始 PDF render + RapidOCR OCR，Problem 4/4 sufficient、Control 4/4 sufficient。
+- Evidence v0.3 Fallback Strategy: Frozen；当前默认 render DPI 为 200，Full 767-item Evidence v0.3 Runtime 仍未授权。
 - Gate 2B Operational Status: HOLD；Gate 2C: NOT AUTHORIZED。
 
 ## 当前进展
@@ -84,13 +85,14 @@ Next Task: Decide and provision the minimal Chinese OCR dependency for Evidence 
 - 完成 Gate 2B Calibration Sample & Evidence Runtime：Full Inventory 完整性校验通过，deterministic sample / Audit Pools / PyMuPDF lightweight Evidence 完成，767 个 unique selected items，self-check verdict: PASS；报告见 reports/phase2/gate2b_calibration_sample_evidence_report.md。
 - 完成 Gate 2B Evidence Sufficiency Review：Main Review Set 20 条，16 sufficient、1 borderline、3 insufficient；发现 4 条明确 garbled 风险，Formal Verdict 为 PASS WITH EVIDENCE REVISION。
 - 完成 8-file Evidence v0.2 Diagnostic Probe：固定复用 4 个 Problem Item，并从原 16 个 sufficient 中确定性选择 4 个 Control；pdftotext 22.02.0 可用，Probe B/C 均未解决问题项。
-- Evidence v0.2 仅完成 diagnostic design，Gate 2B 仍 HOLD；`pdftotext` 为 diagnostic-only；在中文 OCR dependency 提供并完成 Evidence v0.3 诊断前不执行 Full Evidence v0.2/v0.3 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry。
-- 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 不可用，`paddleocr`、`rapidocr_onnxruntime`、`rapidocr` 均未安装；未执行 200/300 DPI render 或 OCR Probe。
+- Evidence v0.2 仅完成 diagnostic design，Gate 2B 仍 HOLD；`pdftotext` 为 diagnostic-only；Evidence v0.3 fallback diagnostic 已完成，但 Full Evidence v0.2/v0.3 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry 仍未授权。
+- 完成 Evidence v0.3 OCR Runtime Capability Check：远程 `.venv` 安装并验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2`，三个 ONNX Runtime session 均使用 `CPUExecutionProvider`；合成图中文/英文/数字识别通过。
+- 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结；Gate 2B 仍 HOLD。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Decide and provision the minimal Chinese OCR dependency for Evidence v0.3 diagnostic validation.
+在同一 767-item sample 上运行 Evidence v0.3。
 
 ## 变更记录
 
@@ -123,3 +125,4 @@ Decide and provision the minimal Chinese OCR dependency for Evidence v0.3 diagno
 | 2026-09-15 | Gate 2B Evidence Sufficiency Review 完成：20 条 Main Review，16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%；Formal Verdict 为 PASS WITH EVIDENCE REVISION；下一任务为 Gate 2B Evidence Contract Revision |
 | 2026-09-15 | 完成 8-file Evidence v0.2 Diagnostic Probe 和 diagnostic design：4 Problem + 4 Control；Probe B/C 均未将问题项提升到 sufficient；Gate 2B 保持 HOLD；下一任务为 Evidence v0.3 visual/OCR fallback 设计 |
 | 2026-09-15 | 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 与已检查的 Python OCR engines 均不可用；未执行 render/OCR；Gate 2B 保持 HOLD；下一任务为决定并提供最小中文 OCR dependency |
+| 2026-09-15 | 完成 Evidence v0.3 OCR Runtime 与固定 8-item Diagnostic：远程 `.venv` 使用 RapidOCR 3.9.2 + ONNX Runtime 1.23.2 CPU，Problem 4/4、Control 4/4 sufficient；选择并冻结 200 DPI fallback strategy；Gate 2B 仍 HOLD；下一任务为同一 767-item sample 上的 Evidence v0.3 Implementation |

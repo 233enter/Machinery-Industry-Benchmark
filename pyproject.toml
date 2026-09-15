@@ -17,6 +17,10 @@ dependencies = [
 dev = [
     "pytest>=8,<9",
 ]
+ocr = [
+    "rapidocr==3.9.2",
+    "onnxruntime==1.23.2",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

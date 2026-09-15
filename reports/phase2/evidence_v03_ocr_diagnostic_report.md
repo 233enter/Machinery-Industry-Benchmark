@@ -3,57 +3,63 @@
 Project: Mechanical Industry General Benchmark
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
 Milestone: Source Corpus Calibration v0.1
-Report Status: Blocked - OCR Runtime Dependency Missing
+Report Status: Completed - Fallback Strategy Frozen
 Gate 2B Diagnostic Status: HOLD
 Related Design: `docs/13_phase2_evidence_v03_visual_ocr_fallback.md`
 
-## 1. Environment
+## 1. Diagnostic Scope
 
-本次只读检查使用既有远程环境：
+本次只执行 Evidence v0.3 的固定 8-file Diagnostic Set，不重跑 767 条，不修改历史
+Gate 2B Runtime Artifact，不执行 Taxonomy Annotation、Source Selection、LLM、MinerU 或
+全量 OCR。
+
+固定输入仍为：
+
+```text
+/data/suzhe/migb/phase2/runs/p2b-20260915T023641Z-cbde565
+```
+
+## 2. Runtime Environment and Dependency Gate
+
+远程环境：
 
 ```text
 SSH alias: migb
 hostname: xuelangyun
 Python runtime: /data/suzhe/Machinery-Industry-Benchmark/.venv/bin/python
-Source Root: /mnt/data_nfs/dataset/original/cmes/journal
 ```
 
-历史 Gate 2B Runtime Artifact 和 4 个 v0.2 diagnostic inputs 均保持 immutable。本次未
-读取或修改 Source PDF 内容以外的任何持久化 Artifact，也未创建临时图片。
+在远程项目 `.venv` 中安装并验证：
 
-## 2. OCR Engine Availability
-
-### Tesseract
-
-| Check | Result |
+| Component | Result |
 | --- | --- |
-| `command -v tesseract` | unavailable；`tesseract: command not found` |
-| `tesseract --version` | not available |
-| `tesseract --list-langs` | not available |
-| `chi_sim` | unavailable；Language Gate not passed |
-| `eng` | unavailable；Language Gate not passed |
+| `rapidocr` | available；`3.9.2` |
+| `onnxruntime` | available；`1.23.2` |
+| `CPUExecutionProvider` | available；RapidOCR detection/classification/recognition sessions 均实际使用 CPU |
+| `tesseract` | unavailable；本次未安装 |
+| `paddleocr` | unavailable；不属于本次最小依赖 |
 
-### Alternative Python Engines
+未使用 sudo、apt、conda 或 GPU OCR stack。`pyproject.toml` 已声明独立 `[ocr]` optional
+extra；RapidOCR 不成为 inventory、sampling 或既有 PyMuPDF Evidence 的 mandatory
+dependency。
 
-| Module | Result |
-| --- | --- |
-| `paddleocr` | unavailable；`ModuleNotFoundError` |
-| `rapidocr_onnxruntime` | unavailable；`ModuleNotFoundError` |
-| `rapidocr` | unavailable；`ModuleNotFoundError` |
+### Synthetic Image Check
 
-结论：
+合成图包含：
 
 ```text
-OCR Runtime Dependency Missing
-Chinese OCR unavailable
+机械制造与自动化
+齿轮传动磨损分析
+Mechanical Engineering
+123456
 ```
 
-本次没有执行 `sudo apt install`、`apt install`、`conda install` 或 `pip install`。
+RapidOCR 识别出上述四行，Synthetic Chinese/English/Digit Check: `PASS`。
 
-## 3. Problem / Control Set
+## 3. Fixed Problem / Control Set
 
-Diagnostic Set 固定为 Evidence v0.2 已使用的 4 个 Problem 和 4 个 Control；所有
-`calibration_item_id`、`file_instance_id` 和 `relative_path` 均保持不变。
+固定复用 Evidence v0.2 已确定的 4 个 Problem 和 4 个 Control，不重新抽样，不更换
+`calibration_item_id`、`file_instance_id` 或 `relative_path`。
 
 | Item | Role | `calibration_item_id` | Relative path |
 | --- | --- | --- | --- |
@@ -66,209 +72,159 @@ Diagnostic Set 固定为 Evidence v0.2 已使用的 4 个 Problem 和 4 个 Cont
 | C3 | control | `78ba6d84-c7b6-5dca-9ff9-1838689c8bc1` | `zhuzao/【2023-03】厚大断面球墨铸铁齿轮铸件的研制.pdf` |
 | C4 | control | `7d1cfa14-757d-56aa-9c0f-9b59c27405aa` | `lihuajianyan-huaxuefence/【2015-12】八极杆碰撞反应池-电感耦合等离子体质谱法测定食用香精中多元素.pdf` |
 
-## 4. Rendering Strategy and DPI Comparison
+## 4. Rendering and Evidence Contract
 
-计划从原始 PDF 直接用 PyMuPDF render，并复用 Evidence v0.2 页面集合：
+每个 selected page 均由 PyMuPDF 从原始 PDF 直接 render 到系统临时 PNG，再交给
+RapidOCR；没有对乱码 text layer 截图或 OCR。页面选择复用 Evidence v0.2：
 
 ```text
 first 3 + floor((N - 1) * 0.50) + floor((N - 1) * 0.75)
 ```
 
-计划比较 200 DPI 和 300 DPI。但由于 Tesseract、中文语言包和其他 OCR engine 均不可用，
-本次按 Dependency Gate 停止：
+固定 contract：
 
-| Render DPI | Result |
-| ---: | --- |
-| 200 | not run；OCR Runtime unavailable |
-| 300 | not run；OCR Runtime unavailable |
+- P1、P2 比较 200 DPI 和 300 DPI；
+- 其余 Item 在最终选择的 200 DPI 下运行；
+- 每页最多保存 4,000 Unicode chars；
+- 全局最多保存 20,000 chars；
+- 保留 `<<<PAGE:n>>>` delimiter；
+- RapidOCR 检测结果按 bbox top-to-bottom、left-to-right 排序；
+- 记录 extractor、engine/version、languages、DPI、page indices、raw/stored chars 和 runtime。
 
-因此本次没有生成 PNG、没有进行视觉清晰度判断，也不能区分“页面本身质量问题”和“OCR
-engine limitation”。
+## 5. Paired Review Results
 
-## 5. OCR Configuration
+### 5.1 Problem / Control Decision
 
-首选候选配置仍为：
+| Item | 200 DPI | 300 DPI 对照 | Final decision |
+| --- | --- | --- | --- |
+| P1 | sufficient | sufficient | sufficient |
+| P2 | sufficient | sufficient | sufficient |
+| P3 | sufficient | not run | sufficient |
+| P4 | sufficient | not run | sufficient |
+| C1 | sufficient | not run | sufficient |
+| C2 | sufficient | not run | sufficient |
+| C3 | sufficient | not run | sufficient |
+| C4 | sufficient | not run | sufficient |
 
-```python
-page.get_textpage_ocr(
-    language="chi_sim+eng",
-    dpi=300,
-    full=True,
-)
-```
+Problem Set sufficient rate: `4 / 4`。
 
-如果 API 不可用，才考虑 PyMuPDF render page 后调用 Tesseract CLI。未来有效 Probe 必须
-同时记录：
+Control Set sufficient rate: `4 / 4`。
 
-```text
-extractor
-ocr_engine
-ocr_engine_version
-ocr_languages
-render_dpi
-selected_page_indices
-ocr_raw_char_count
-ocr_stored_char_count
-ocr_runtime_seconds
-```
+最低条件为 Problem `>= 3 / 4` 且 Control `>= 3 / 4`，本次满足。
 
-本次没有选择或执行 OCR engine。
+P1–P4 的 OCR Evidence 均能稳定提供标题、摘要或正文中的机械/工程主题和技术上下文；
+个别图表、公式或英文片段仍需人工复核，不因 OCR 可读就绕过 Ground Truth 或质量审查。
 
-## 6. Paired Results
+### 5.2 DPI Comparison
 
-### 6.1 Problem Set
+| Item | 200 DPI runtime (s) | 300 DPI runtime (s) | Quality conclusion |
+| --- | ---: | ---: | --- |
+| P1 | 16.389 | 17.847 | 两者均 sufficient；300 DPI 无明显额外收益 |
+| P2 | 14.974 | 15.517 | 两者均 sufficient；300 DPI 无明显额外收益 |
 
-以下 A/B/C 结果来自已完成的 Evidence v0.2 diagnostic；D 因依赖缺失为 `not tested`。
+因此选择 `200 DPI`：在固定对照中质量相近，运行成本更低。300 DPI 只作为本次 P1/P2
+诊断对照，不进入当前冻结的默认 fallback 参数。
 
-| Item | A: v0.1 | B: PyMuPDF body probe | C: pdftotext body probe | D: OCR fallback |
-| --- | --- | --- | --- | --- |
-| P1 | insufficient | insufficient | insufficient | not tested |
-| P2 | borderline | borderline | borderline | not tested |
-| P3 | insufficient | insufficient | insufficient | not tested |
-| P4 | insufficient | insufficient | insufficient | not tested |
+## 6. Runtime Cost and Provenance
 
-Problem Set OCR sufficient rate：`not available`。没有执行 OCR，不能报告为 0/4。
-
-### 6.2 Control Set
-
-| Control | A: v0.1 | B: PyMuPDF body probe | C: pdftotext body probe | D: OCR fallback |
-| --- | --- | --- | --- | --- |
-| C1 | sufficient | sufficient | sufficient | not tested |
-| C2 | sufficient | sufficient | sufficient | not tested |
-| C3 | sufficient | sufficient | sufficient | not tested |
-| C4 | sufficient | sufficient | sufficient | not tested |
-
-Control OCR regression：`not tested`。没有依据判断 OCR 是否会降低现有可读性。
-
-## 7. Runtime Cost
+最终 200 DPI 的 8 个 item 共处理 32 个页面；P1/P2 另处理 9 个 300 DPI 对照页面，
+合计 41 个 OCR 页面。
 
 | Metric | Result |
 | --- | --- |
-| Problem pages rendered | 0 |
-| Control pages rendered | 0 |
-| OCR pages processed | 0 |
-| OCR Evidence records | 0 |
-| OCR runtime | not measured |
-| temporary PNG files | 0 |
+| Final item-level Evidence records | 8；仅保存在诊断过程，未写入正式 Runtime Artifact |
+| Final 200 DPI OCR runtime | 约 115.683 秒 |
+| Including 300 DPI comparison | 约 149.047 秒 |
+| Per-page truncation | 0 |
+| Global truncation | 0 |
+| Temporary PNG | 41 个临时文件，均已清理；无持久化图片 |
 | Source PDF writes | 0 |
 
-不能在没有实际 engine 的情况下估算 OCR runtime cost。后续应以每页和每 Item 的实际
-`ocr_runtime_seconds` 记录成本。
+最终 200 DPI item-level 统计：
 
-## 8. Text Quality Signal Observations
+| Item | `selected_page_indices` | `ocr_raw_char_count` | `ocr_stored_char_count` | `ocr_runtime_seconds` |
+| --- | --- | ---: | ---: | ---: |
+| P1 | `[0,1,2,4,6]` | 6687 | 6756 | 16.389 |
+| P2 | `[0,1,2,3]` | 7846 | 7901 | 14.974 |
+| P3 | `[0,1,2,3]` | 7063 | 7118 | 18.340 |
+| P4 | `[0,1,2]` | 3538 | 3579 | 9.699 |
+| C1 | `[0,1,2,4,6]` | 10044 | 10113 | 18.559 |
+| C2 | `[0,1,2,3]` | 7108 | 7163 | 14.827 |
+| C3 | `[0,1,2,3]` | 4439 | 4494 | 11.631 |
+| C4 | `[0,1,2]` | 6029 | 6070 | 11.264 |
 
-本次没有新增 OCR 文本，因此没有新的 OCR Unicode metrics。Evidence v0.2 已有观察仍然
-有效：字符可打印比例上升并不等价于语义可读性；不能用单一 `private_use`、`control` 或
-`printable` 指标自动清除 `garbled`。
-
-本次不冻结 automatic OCR trigger threshold，也不创建编码风险自动分类器。
-
-## 9. Root Cause Refinement
-
-当前最强证据仍支持：
+每条记录使用以下 provenance：
 
 ```text
-text_extraction_encoding_issue
+extractor: pymupdf_render_to_png+rapidocr
+ocr_engine: rapidocr
+ocr_engine_version: 3.9.2
+ocr_languages: ch+en
+render_dpi: 200
+selected_page_indices: item-specific frozen selector
+ocr_raw_char_count: recorded
+ocr_stored_char_count: recorded
+ocr_runtime_seconds: recorded
+execution_provider: CPUExecutionProvider
+onnxruntime_version: 1.23.2
 ```
 
-但由于没有完成原始页面 render + Chinese OCR paired comparison，目前不能进一步确认：
+`ocr_raw_char_count` 不包含 page delimiter；`ocr_stored_char_count` 为全局 cap 后保存的
+Evidence 长度，包含组装后的 delimiter。
 
-- 页面视觉清晰但 text layer 编码损坏；
-- 页面本身低清、扫描模糊或变形；
-- OCR engine 对该类页面能力不足。
+## 7. Safety and Immutability Checks
 
-所以本次不把 P1–P4 改判为 visual quality issue 或 OCR engine limitation。
+- 8 个 Source PDF 的 size 和 mtime 均与 Full Inventory 记录一致；
+- 历史 Gate 2B Runtime Artifact 的 `calibration_sample.parquet`、
+  `calibration_evidence.jsonl`、`manifest.json`、`statistics.json` checksum/size 均未变化；
+- 未 rename、move、OCR 写回或 rewrite Source PDF；
+- 未写入历史 Run Directory；
+- 运行结束后没有保留临时 PNG。
 
-## 10. OCR Fallback Decision
+## 8. Fallback Strategy Decision
 
-本次没有可执行的中文 OCR Runtime，故不满足：
+本次冻结 Evidence v0.3 fallback strategy：
 
 ```text
-Problem Set >= 3 / 4 sufficient
-Control Set >= 3 / 4 sufficient
+Stage 1: Primary PyMuPDF text Evidence
+Stage 2: Text quality assessment
+Stage 3: Conditional RapidOCR retry on insufficient/unreadable Evidence
+Stage 4: Final Evidence + provenance + manual review queue
 ```
 
-OCR fallback 的结论为：
+冻结参数：
 
 ```text
-OCR Runtime Dependency Missing
-Evidence v0.3 strategy: not frozen
+RapidOCR: 3.9.2
+ONNX Runtime: 1.23.2
+Execution Provider: CPUExecutionProvider
+OCR languages: ch+en
+Render DPI: 200
+Per-page cap: 4000 Unicode chars
+Global cap: 20000 chars
 ```
 
-`pdftotext -layout` 继续保持 `diagnostic-only`，不进入 Evidence v0.3 Production Fallback。
+OCR 仍只作为 conditional fallback，不对全部 Main Sample、Audit Pool、767 items 或
+Candidate Source Corpus 做全量 OCR。`pdftotext -layout` 继续为 `diagnostic-only`，不
+进入 Evidence v0.3 fallback。
 
-## 11. Evidence v0.3 Proposed Strategy
+本次诊断足以冻结 fallback strategy，但不代表 Full Evidence v0.3 Runtime 已获授权。
 
-在依赖具备并通过 `chi_sim + eng` Language Gate 后，候选流程为：
-
-```text
-Stage 1: PyMuPDF primary Evidence
-Stage 2: text quality assessment
-Stage 3: conditional OCR retry for unreadable / insufficient Evidence
-Stage 4: final Evidence and provenance review
-```
-
-OCR 只能作为 fallback，不对所有 600、767 或 60,454 个文件执行全量 OCR。当前无法可靠
-冻结 automatic encoding-risk routing，初始应使用 `insufficient_evidence` / manual review
-驱动的 conditional retry。
-
-## 12. Evidence v0.3 Schema Changes
-
-建议增加：
+## 9. Gate 2B Status and Stop Boundary
 
 ```text
-primary_extractor
-primary_evidence_status
-quality_signal_revision
-quality_signals
-fallback_required
-fallback_reason
-fallback_extractor
-fallback_status
-final_evidence_source
-final_evidence_revision
-ocr_engine
-ocr_engine_version
-ocr_languages
-render_dpi
-ocr_runtime_seconds
-```
-
-`fallback_reason` 先使用最小 controlled vocabulary：
-
-```text
-encoding_unreadable
-insufficient_text
-extraction_failure
-manual_review
-```
-
-历史 v0.1/v0.2 Artifact 不修改。
-
-## 13. Dependency Options and Integration Impact
-
-需要项目 Owner / 环境管理员在下一步决定并提供以下之一：
-
-1. Remote Linux Server 或受控容器中的 Tesseract binary，以及 `chi_sim`、`eng` traineddata；
-   影响包括安装/镜像依赖声明、Language Gate、版本和 provenance 记录。
-2. 已包含中文 OCR 的隔离 Runtime；影响包括运行环境声明、远程复核和 OCR 输出 provenance，
-   不把大型 OCR 框架直接写入当前 Python package。
-
-本次不选择具体方案，不安装依赖，不假设 CUDA/GPU 可用。
-
-## 14. Gate 2B Status
-
-```text
-Full 767 Evidence v0.3 rerun: NOT AUTHORIZED
+Evidence v0.3 OCR Diagnostic: PASS
+Evidence v0.3 Fallback Strategy: FROZEN
 Gate 2B: HOLD
 Gate 2C: NOT AUTHORIZED
+Full 767-item Evidence v0.3 rerun: NOT AUTHORIZED
 ```
 
-只有在 OCR Dependency Decision 完成、有效 Chinese OCR Probe 达标后，才可考虑复用同一
-767-item Sample 进行 Evidence v0.3 Implementation 和 paired Gate 2B Review。Gate threshold
-保持：
+下一任务为：
 
 ```text
-sufficient >= 18 / 20
-insufficient <= 1 / 20
+Gate 2B Evidence v0.3 Implementation on the same 767-item Sample
 ```
+
+该下一任务仍需单独授权；在此之前不执行 767-item rerun、Taxonomy Annotation、Source
+Selection 或 Benchmark Source Registry。
