@@ -5,7 +5,8 @@ Document: Phase 2 Taxonomy Calibration & Source Selection Design
 Version: 0.1
 Status: Reviewed - Baseline
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2B Calibration Sample & Evidence Implementation
+Current Task: Gate 2C Taxonomy Annotation Execution Design
+Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档定位与设计边界
 
@@ -556,6 +557,8 @@ Inventory Metadata，不等同于 Ground Truth。
 | `secondary_domains` | 0–3 个 Domain；确有跨领域依赖时使用 |
 | `taxonomy_fit` | `clear_fit` / `cross_domain` / `ambiguous` / `taxonomy_gap` / `out_of_scope` / `insufficient_evidence` |
 | `confidence` | `high` / `medium` / `low` |
+| `evidence_usability` | `usable` / `partially_usable` / `unreadable` / `insufficient`；独立于 `taxonomy_fit` |
+| `requires_evidence_retry` | Item-level derived flag；任一独立 Annotator 触发 Evidence retry 时为 `true` |
 | `evidence_keywords` | 支持判断的关键词或短语 |
 | `evidence_rationale` | 基于 Evidence 的判断理由 |
 | `review_status` | `annotated_a` / `annotated_b` / `provisionally_agreed` / `conflict` / `human_reviewed` / `deferred` |
@@ -573,6 +576,13 @@ Inventory Metadata，不等同于 Ground Truth。
 - `insufficient_evidence`：轻量 Evidence 不足，不能可靠判断。
 
 `taxonomy_gap` 不能被当作标注失败而隐藏，也不能为了保持 D01–D12 不变而强行归类。
+
+`evidence_usability` 不等于 `taxonomy_fit`。如果任一独立 Annotator 的
+`evidence_usability` 为 `unreadable` 或 `insufficient`，该 Item 的
+`requires_evidence_retry` 必须为 `true`；如果 `taxonomy_fit = insufficient_evidence`，
+也必须触发相同的 Evidence retry。`partially_usable` 不单独触发 OCR；若仍能确定
+`primary_domain` 且 `confidence != low`，可以继续进入 Agreement Logic。`confidence = low`
+只进入 Review Queue，不单独触发 OCR。
 
 ## 11. Annotation Method
 
@@ -606,9 +616,12 @@ Pass A: Model A / independent annotation
 Pass B: Model B or independent prompt / independent annotation
 ```
 
-Pass A 不看 Pass B，Pass B 不看 Pass A。两个 Pass 必须使用相同版本的 Evidence Contract、
-Taxonomy Definition 和标注 Schema，但保持输出独立。实际 Annotator model ID 延后至
-Gate 2C execution config 冻结，本设计不擅自指定具体模型。
+Pass A 不看 Pass B，Pass B 不看 Pass A。首轮两个 Pass 使用相同的 Primary Evidence、
+Evidence Contract、Taxonomy Definition 和标注 Schema，但保持输出独立。如果任一 Pass
+触发 Evidence retry，A1/B1 只保留 audit provenance，不进入最终 agreement、conflict 或
+taxonomy metrics；RapidOCR 生成同一份 final Evidence 后，必须使用相同的 final Evidence、
+Taxonomy revision、prompt revision 和 schema revision 重跑 A/B。实际 Annotator model ID
+延后至 Gate 2C execution config 冻结，本设计不擅自指定具体模型。
 
 ### 11.3 Agreement 与 Conflict
 
@@ -1015,13 +1028,32 @@ PASS WITH EVIDENCE REVISION
 FAIL
 ```
 
-如果 Evidence 过短、只有 front matter、出现乱码或无法支持稳定 Domain 判断，应先修订
-Evidence Contract；只有 Evidence Contract 通过后，才允许进入 Annotation，不得以
-Annotation 绕过 Evidence 问题。
+Gate 2B 当前最终状态为 `PASSED`，采用的 Evidence Contract 为
+`evidence-v0.3-adaptive-v0.1`。其含义是：Gate 2B 的 Sampling、Artifact Pipeline 和
+Primary Evidence 已完成验证，并已验证 RapidOCR fallback 能覆盖固定 Problem / Control
+诊断项；它不表示已经执行 Taxonomy Annotation。
+
+Evidence 过短、只有 front matter、出现乱码或无法支持稳定 Domain 判断时，不得以
+Annotation 静默绕过 Evidence 问题。进入 Gate 2C 后，按 annotation-side retry contract
+由 `evidence_usability` 和 `taxonomy_fit = insufficient_evidence` 决定是否执行一次
+Conditional RapidOCR fallback；A/B 必须使用相同的最终 Evidence。
 
 Gate 2B 不进行 60454 文档的大规模 Corpus Classification。
 
 ### Gate 2C — Taxonomy Calibration & Policy Freeze
+
+Gate 2C 已获授权，但必须按以下顺序进入，不能在 Gate 2B 通过后直接执行完整 Annotation：
+
+```text
+Gate 2C-A  Annotation Execution Design Freeze
+Gate 2C-B  20-item Annotation Dry-run
+Gate 2C-C  Full 600-item Taxonomy Calibration
+Gate 2C-D  Calibration Review + Taxonomy Decision + Source Selection Policy Freeze
+```
+
+Gate 2C-A 和 Gate 2C-B 通过前，不执行完整 600-item 双 Annotator Annotation。Gate 2C
+执行骨架见 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`；实际 Annotator model
+ID、provider、prompt 和 inference parameters 仍待 Gate 2C-A 冻结。
 
 完成：
 
@@ -1073,7 +1105,7 @@ Phase 3 - Corpus Processing
 5. LLM Annotation 使用哪两个独立 Annotator？—— `Deferred; freeze before Gate 2C execution`
 6. `provisionally_agreed` Sample 的人工抽检比例是否为 10%？—— `Resolved v0.1; deterministic`
 7. Benchmark Source Corpus 是否需要数量目标？—— `Deferred to Gate 2C Source Selection Policy`
-8. `text_absent` 文档何时进行 OCR / visual routing？—— `Deferred; no OCR in Gate 2B`
+8. `text_absent` 文档何时进行 OCR / visual routing？—— `Deferred; remains an independent Audit Pool and is not bulk-OCR'd in Gate 2C dry-run`
 9. document-family resolution 应在 Phase 2 后半段还是 Phase 3 前完成？——
    `Resolved at workflow level: before final Gate 2D Registry`
 10. temporal balancing 是否需要进入 Source Selection Policy？—— `Deferred to Gate 2C`
@@ -1082,16 +1114,16 @@ Phase 3 - Corpus Processing
 
 ## 20. 当前禁止事项
 
-本设计完成后仍禁止：
+当前文档更新后，本次仍只停留在 Gate 2C 执行设计边界，禁止：
 
 - 创建 Calibration Sample；
 - 读取 600 Main Sample 或 Audit Pools 中真实 PDF；
 - 调用 LLM；
-- 执行 Taxonomy Annotation；
+- 立即执行 Taxonomy Annotation；
 - 执行 Source Selection；
 - 创建 Benchmark Source Corpus Registry；
 - 运行 MinerU；
-- 运行 OCR；
+- 在 Gate 2C-A 设计冻结和 Gate 2C-B dry-run 授权前运行 OCR；
 - 执行 Full PDF Parsing；
 - 生成 Benchmark Questions；
 - 生成 Ground Truth。

@@ -3,9 +3,12 @@
 Project: Mechanical Industry General Benchmark
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
 Milestone: Source Corpus Calibration v0.1
-Report Status: Evidence Sufficiency Review Completed - Evidence Contract Revision Required
+Report Status: Gate 2B Adaptive Evidence Closeout Completed
 Gate 2B Runtime Self-check Verdict: **PASS**
-Gate 2B Formal Verdict: **PASS WITH EVIDENCE REVISION**
+Gate 2B Initial Evidence Sufficiency Verdict: **PASS WITH EVIDENCE REVISION**
+Gate 2B Formal Verdict: **PASS**
+Evidence Contract: `evidence-v0.3-adaptive-v0.1`
+Gate 2B Canonical Runtime: **IMMUTABLE**
 
 ## 1. Scope and Stop Boundary
 
@@ -236,10 +239,11 @@ Artifact validation summary：
 
 这些大规模 Runtime Artifacts 不提交 Git；本地仓库只保留本审查报告和项目进度记录。
 
-## 8. Gate 2B Runtime Review Status and Next Boundary
+## 8. Gate 2B Runtime Review Status and Initial Boundary
 
-Runtime 层面的结论为：**Gate 2B self-check PASS**。本次已完成 Evidence Sufficiency
-Review，正式 Gate 2B 结论为：**PASS WITH EVIDENCE REVISION**。
+Runtime 层面的结论为：**Gate 2B self-check PASS**。本节记录初始 Evidence v0.1
+Sufficiency Review 的结果；当时的正式结论为：**PASS WITH EVIDENCE REVISION**。最终
+Gate 2B Adaptive Evidence Closeout 见文档末尾新增的第 10 节。
 
 Runtime self-check 的依据包括：
 
@@ -255,7 +259,7 @@ Runtime self-check 的依据包括：
 
 本次 Evidence Sufficiency Review 发现部分 Parent Group 的 first-three-pages Evidence
 无法稳定支持主题理解，因此 Evidence Contract v0.1 不能作为 Gate 2C 的统一输入直接接受。
-本报告不构成 Domain Taxonomy 冻结、Benchmark Source Corpus 确定或 Gate 2C / Gate 2D
+该初始结论不构成 Domain Taxonomy 冻结、Benchmark Source Corpus 确定或 Gate 2C / Gate 2D
 通过。
 
 ## Evidence Sufficiency Review
@@ -496,3 +500,100 @@ Formal Gate 2B Verdict：**PASS WITH EVIDENCE REVISION**
 5. 在 Evidence v0.2 设计获得批准前，不重新运行 Evidence，也不进入 Gate 2C Annotation。
 
 本次 Formal Gate 2B 不是 Gate 2C 通过，不允许直接启动 LLM Taxonomy Annotation。
+
+## 10. Gate 2B Adaptive Evidence Closeout
+
+本节记录 Evidence v0.1 初始 Review、Evidence v0.2 诊断、RapidOCR 诊断、Routing
+Calibration 和 Project Owner Decision 之后的最终 Gate 2B Closeout。此前的
+`Evidence v0.1: PASS WITH EVIDENCE REVISION` 作为历史 Review 结论保留，不被改写。
+
+### 10.1 Closeout Evidence Chain
+
+| Step | Result |
+| --- | --- |
+| Evidence v0.1 primary review | 20-item Main Review：16 sufficient、1 borderline、3 insufficient；初始结论为 `PASS WITH EVIDENCE REVISION` |
+| Evidence v0.2 diagnostics | 4 Problem + 4 Control；增加正文页和 `pdftotext -layout` 未解决 Problem items；`pdftotext` 保持 diagnostic-only |
+| RapidOCR diagnostic | 原始 PDF render + RapidOCR；Problem 4 / 4 sufficient，Control 4 / 4 sufficient |
+| Routing calibration | 最佳 automatic candidate 达到 100% garbled recall，但 Main triggered 为 288 / 600（48.0%） |
+| Owner decision | Annotation-side Retry：`ACCEPTED`；Automatic pre-annotation OCR trigger：`REJECTED` |
+
+48.0% 对 fallback 路径过宽，因此不冻结 automatic trigger。该结论表示 automatic
+trigger 在技术上可行但在当前校准集上运行范围过宽，不表示 OCR fallback 失败。
+
+### 10.2 Final Adaptive Evidence Contract
+
+正式冻结：
+
+```text
+Evidence Contract:
+evidence-v0.3-adaptive-v0.1
+```
+
+Gate 2C 的 Item 按以下顺序处理：
+
+```text
+Stage 1  PyMuPDF primary Evidence
+Stage 2  Independent Taxonomy Annotation A/B
+Stage 3  Evidence insufficiency detection
+Stage 4  Conditional RapidOCR fallback
+Stage 5  Final Evidence regeneration
+Stage 6  Restart Annotation A/B for that item
+Stage 7  Agreement / Conflict processing
+```
+
+如果任一 Annotator 的 `evidence_usability` 为 `unreadable` 或 `insufficient`，或
+`taxonomy_fit = insufficient_evidence`，则设置 `requires_evidence_retry = true`。
+`partially_usable` 不单独触发 OCR；`confidence = low` 进入 Review Queue，也不单独触发
+OCR。每个 Item 的 `max_evidence_retry_count = 1`。A/B 在 retry 后必须使用相同的 Final
+Evidence；A1/B1 只保留审计 provenance，不进入最终 agreement、conflict 或 taxonomy
+metrics。
+
+### 10.3 Gate 2B Final Verdict
+
+| Check | Result |
+| --- | --- |
+| Sampling / Artifact Pipeline | PASS |
+| PyMuPDF primary Evidence | 16 / 20 sufficient |
+| Validated RapidOCR fallback | 4 / 4 Problem items sufficient |
+| Control regression | 4 / 4 sufficient |
+| OCR Engine | RapidOCR 3.9.2 |
+| Runtime | ONNX Runtime 1.23.2 |
+| Execution Provider | `CPUExecutionProvider` |
+| Default OCR render DPI | 200 |
+| Reviewed Main items with primary or validated fallback Evidence path | 20 / 20 |
+
+据此：
+
+```text
+Gate 2B Final Verdict:
+PASS
+```
+
+Gate 2B canonical Runtime Artifact 保持 immutable。Canonical Run：
+
+```text
+/data/suzhe/migb/phase2/runs/p2b-20260915T023641Z-cbde565/
+```
+
+### 10.4 Runtime and Gate 2C Boundary
+
+由于最终采用 annotation-side retry：
+
+```text
+Full 767-item Evidence v0.3 Precomputation:
+CANCELLED / NOT REQUIRED
+```
+
+不执行全量 767 条预先 OCR，不创建新的 Full 767-item Evidence v0.3 Runtime，不重新
+解析全部 PDF，不修改 Sampling，也不修改 Gate 2B 原始四个 Runtime Artifact。
+
+Gate 2C 当前为：
+
+```text
+AUTHORIZED FOR DESIGN AND 20-ITEM DRY-RUN ONLY
+```
+
+必须先完成 Gate 2C-A `Annotation Execution Design Freeze`，再进行复用原 Gate 2B
+20-item Main Evidence Review Set 的 Gate 2C-B dry-run；在此前不执行完整 600-item
+双 Annotator Annotation。具体设计骨架见
+`docs/14_phase2_gate2c_taxonomy_annotation_design.md`。

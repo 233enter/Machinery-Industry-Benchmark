@@ -4,8 +4,10 @@ Project: Mechanical Industry General Benchmark
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
 Milestone: Source Corpus Calibration v0.1
 Report Status: Completed - Annotation-side Retry Contract Frozen
-Gate 2B Diagnostic Status: HOLD
-Full 767-item Evidence v0.3 Runtime: NOT AUTHORIZED
+Gate 2B Diagnostic Status: Closed by Owner Decision
+Gate 2B Final Verdict: PASSED
+Evidence Contract: `evidence-v0.3-adaptive-v0.1`
+Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 Trigger Revision: evidence-v0.3-routing-contract-v0.1
 
 ## 1. Purpose
@@ -177,22 +179,36 @@ Main Triggered Rate <= 15%
 ~~~
 
 这不是失败，而是对当前 20-item calibration set 采用更诚实的 adaptive routing contract。
+Owner 已正式接受 annotation-side retry，并拒绝 automatic pre-annotation OCR trigger；
+后者在技术上可行，但当前最佳候选会触发 288 / 600 Main（48.0%），作为 fallback 路径过宽。
 后续如取得更大、已人工标注的 extraction-quality calibration set，可另行评估是否需要
 重新校准；不得把本次候选阈值直接视为永久生产规则。
 
 ## 8. Evidence v0.3 Final Routing Contract
 
-当前冻结的 Evidence v0.3 fallback contract 为：
+当前冻结的 Evidence Contract 为 `evidence-v0.3-adaptive-v0.1`：
 
-1. Primary extractor 使用 PyMuPDF，保持既有 Evidence page selection 和 provenance。
-2. 不执行 pre-annotation automatic OCR trigger；quality signals 仅作为 diagnostic data。
-3. Gate 2C Annotator 首次检查 Primary Evidence。
-4. 只有 Annotator 输出 insufficient_evidence 或 unreadable 时，才触发 RapidOCR fallback。
-5. RapidOCR 使用已验证的 3.9.2，ONNX Runtime 1.23.2、CPUExecutionProvider、
-   ch+en、200 DPI，以及既有 page/global cap 和 page delimiter contract。
-6. OCR 后重新 annotation，并保存 fallback reason、engine/version、render DPI、page
-   indices、raw/stored chars、runtime 和最终 Evidence source。
-7. OCR 仍不充分的记录进入 review queue，不得自动标记为 sufficient。
+```text
+Stage 1  PyMuPDF primary Evidence
+Stage 2  Independent Taxonomy Annotation A/B
+Stage 3  Evidence insufficiency detection
+Stage 4  Conditional RapidOCR fallback
+Stage 5  Final Evidence regeneration
+Stage 6  Restart Annotation A/B for that item
+Stage 7  Agreement / Conflict processing
+```
+
+不执行 pre-annotation automatic OCR trigger；quality signals 仅作为 diagnostic data。
+只有任一 Annotator 的 `evidence_usability` 为 `unreadable` / `insufficient`，或
+`taxonomy_fit = insufficient_evidence` 时，才设置 `requires_evidence_retry = true` 并
+触发一次 RapidOCR。`partially_usable` 和 `confidence = low` 不单独触发 OCR；后者进入
+Review Queue。
+
+RapidOCR 使用已验证的 3.9.2、ONNX Runtime 1.23.2、`CPUExecutionProvider`、`ch+en`、
+200 DPI，以及既有 page/global cap 和 page delimiter contract。OCR 后必须生成同一份
+Final Evidence 供 A/B 重跑；A1/B1 只保留 audit provenance，不进入最终 agreement、
+conflict 或 taxonomy metrics。OCR 仍不充分的记录进入 Review Queue，不得自动标记为
+sufficient。
 
 ## 9. Pool-specific Handling
 
@@ -210,14 +226,16 @@ quality signal 的文本计算。
 
 ~~~
 Automatic OCR Trigger Frozen: NO
-Selected Strategy: annotation-side retry
-Full 767-item Evidence v0.3 Runtime: NOT AUTHORIZED
-Gate 2B: HOLD
-Gate 2C: NOT AUTHORIZED
+Automatic pre-annotation OCR: REJECTED
+Selected Strategy: annotation-side retry (ACCEPTED)
+Evidence Contract: evidence-v0.3-adaptive-v0.1
+Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
+Gate 2B: PASSED
+Gate 2C: AUTHORIZED FOR DESIGN AND 20-ITEM DRY-RUN ONLY
 ~~~
 
-由于采用 Case B，不能在本次任务中自动进入 Gate 2C 或执行完整 767-item Runtime。下一步
-需要 Project Owner / Gate Decision 明确是否接受：
+由于采用 Case B，不能在本次任务中执行完整 767-item Runtime 或直接执行 600-item
+Annotation。Owner Decision 已明确接受：
 
 ~~~
 PyMuPDF primary Evidence
@@ -225,8 +243,9 @@ PyMuPDF primary Evidence
 + Gate 2C insufficient-evidence / unreadable retry contract
 ~~~
 
-在该决策完成前，不运行完整 767-item OCR Evidence，不修改 Sampling，不执行 Taxonomy
-Annotation、Source Selection 或 Benchmark Source Registry。
+在 Gate 2C-A Design Freeze 和 Gate 2C-B 20-item dry-run 通过前，不执行完整 600-item
+Taxonomy Annotation，不修改 Sampling，不执行 Source Selection 或 Benchmark Source
+Registry。
 
 ## 11. Reproducibility and Verification
 

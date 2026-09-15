@@ -4,9 +4,9 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2B Routing Contract Gate Decision
+Current Task: Gate 2C Taxonomy Annotation Execution Design
 
-Next Task: Project Owner 决定是否接受 annotation-side retry contract，并授权 Full 767-item Evidence v0.3 Runtime。
+Next Task: Review and freeze Gate 2C annotator configuration, prompt contract, annotation artifacts, and 20-item dry-run protocol before any LLM call.
 
 ## Current Status
 
@@ -32,19 +32,21 @@ Next Task: Project Owner 决定是否接受 annotation-side retry contract，并
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2B Routing Contract Gate Decision
+- Current Task: Gate 2C Taxonomy Annotation Execution Design
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
-- Gate 2B Formal Verdict: PASS WITH EVIDENCE REVISION；Evidence Contract v0.1 暂不作为 Gate 2C 的统一输入。
+- Gate 2B Initial Evidence Sufficiency Verdict: PASS WITH EVIDENCE REVISION；该历史 Review 结论保留。
 - Gate 2B Evidence v0.2 Diagnostic Probe: Completed；Problem Set 4、Control Set 4，Probe B/C 均未将问题项提升到 sufficient，8 个 Source PDF size/mtime 均未变化。
 - Evidence v0.2 Diagnostic Design: Completed；仅为诊断设计，不授权 Full Gate 2B rerun；`pdftotext` 保持 diagnostic-only。
 - Evidence v0.3 OCR Runtime Capability Check: Completed；远程 `.venv` 已验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2` 和 `CPUExecutionProvider`。
 - Evidence v0.3 OCR Diagnostic: Completed；固定 8-item Diagnostic Set 已完成原始 PDF render + RapidOCR OCR，Problem 4/4 sufficient、Control 4/4 sufficient。
-- Evidence v0.3 Fallback Strategy: Frozen；当前默认 render DPI 为 200，Automatic OCR Routing Trigger 未冻结，采用 annotation-side retry contract。
-- Evidence v0.3 Routing Signal Calibration: Completed；4/4 reviewed garbled recall 的最优规则会触发 288/600 Main（48.0%），超过 15% 工程指导线。
-- Full 767-item Evidence v0.3 Runtime Authorization: Not Authorized；Case B 需要 Project Owner / Gate Decision 后才能决定是否执行。
-- Gate 2B Operational Status: HOLD；Gate 2C: NOT AUTHORIZED。
+- Evidence v0.3 Fallback Strategy: Frozen；默认 render DPI 为 200，Automatic pre-annotation OCR trigger rejected，采用 annotation-side retry。
+- Evidence v0.3 Routing Signal Calibration: Completed；最佳 100% garbled recall 规则会触发 288/600 Main（48.0%），因 fallback 路径过宽而不采用 automatic trigger。
+- Evidence Contract: `evidence-v0.3-adaptive-v0.1`。
+- Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
+- Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
+- Gate 2C: AUTHORIZED FOR DESIGN AND 20-ITEM DRY-RUN ONLY。
 
 ## 当前进展
 
@@ -87,15 +89,17 @@ Next Task: Project Owner 决定是否接受 annotation-side retry contract，并
 - 完成 Gate 2B Calibration Sample & Evidence Runtime：Full Inventory 完整性校验通过，deterministic sample / Audit Pools / PyMuPDF lightweight Evidence 完成，767 个 unique selected items，self-check verdict: PASS；报告见 reports/phase2/gate2b_calibration_sample_evidence_report.md。
 - 完成 Gate 2B Evidence Sufficiency Review：Main Review Set 20 条，16 sufficient、1 borderline、3 insufficient；发现 4 条明确 garbled 风险，Formal Verdict 为 PASS WITH EVIDENCE REVISION。
 - 完成 8-file Evidence v0.2 Diagnostic Probe：固定复用 4 个 Problem Item，并从原 16 个 sufficient 中确定性选择 4 个 Control；pdftotext 22.02.0 可用，Probe B/C 均未解决问题项。
-- Evidence v0.2 仅完成 diagnostic design，Gate 2B 仍 HOLD；`pdftotext` 为 diagnostic-only；Evidence v0.3 fallback diagnostic 已完成，但 Full Evidence v0.2/v0.3 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry 仍未授权。
+- Evidence v0.2 仅完成 diagnostic design；当时 Gate 2B 保持 HOLD，`pdftotext` 为 diagnostic-only；随后通过 Evidence v0.3 fallback diagnostic 和 Routing Contract Gate Decision 完成 Gate 2B Closeout。
 - 完成 Evidence v0.3 OCR Runtime Capability Check：远程 `.venv` 安装并验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2`，三个 ONNX Runtime session 均使用 `CPUExecutionProvider`；合成图中文/英文/数字识别通过。
-- 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结；Gate 2B 仍 HOLD。
-- 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；冻结 annotation-side retry contract，Full 767-item Runtime 暂不授权。
+- 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结。
+- 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；Owner 接受 annotation-side retry、拒绝 automatic pre-annotation OCR trigger。
+- 完成 Gate 2B Adaptive Evidence Closeout：Gate 2B Final Verdict 为 `PASSED`；Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 为 `CANCELLED / NOT REQUIRED`；Gate 2B canonical Runtime 保持 immutable。
+- 建立 Gate 2C 执行设计骨架：Gate 2C-A/B/C/D、A/B same-final-Evidence、retry semantics 和 20-item dry-run protocol；当前不调用 LLM、不执行 600-item Annotation。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Project Owner / Gate Decision：确认是否接受 annotation-side retry contract，并决定是否授权在同一 767-item sample 上运行 Evidence v0.3。
+Review and freeze Gate 2C annotator configuration, prompt contract, annotation artifacts, and 20-item dry-run protocol before any LLM call.
 
 ## 变更记录
 
@@ -130,3 +134,5 @@ Project Owner / Gate Decision：确认是否接受 annotation-side retry contrac
 | 2026-09-15 | 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 与已检查的 Python OCR engines 均不可用；未执行 render/OCR；Gate 2B 保持 HOLD；下一任务为决定并提供最小中文 OCR dependency |
 | 2026-09-15 | 完成 Evidence v0.3 OCR Runtime 与固定 8-item Diagnostic：远程 `.venv` 使用 RapidOCR 3.9.2 + ONNX Runtime 1.23.2 CPU，Problem 4/4、Control 4/4 sufficient；选择并冻结 200 DPI fallback strategy；Gate 2B 仍 HOLD；下一任务为同一 767-item sample 上的 Evidence v0.3 Implementation |
 | 2026-09-15 | 完成 Evidence v0.3 OCR Routing Signal Calibration：读取既有 767-item canonical Evidence，生成独立 Quality Signals Artifact；最佳 100% garbled recall 规则的 Main Triggered Rate 为 48.0%，不满足 15% 工程指导线；冻结 annotation-side retry contract，Automatic OCR Trigger 未冻结，Full 767-item Runtime 暂不授权；下一任务为 Gate 2B Routing Contract Gate Decision |
+| 2026-09-15 | Project Owner 接受 Annotation-side Retry、拒绝 Automatic pre-annotation OCR trigger；Gate 2B Adaptive Evidence Closeout 完成并通过，Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 取消且不再需要；下一任务为 Gate 2C Taxonomy Annotation Execution Design |
+| 2026-09-15 | 建立 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`：仅冻结 Gate 2C-A/B/C/D 执行骨架、A/B same-final-Evidence、retry semantics 和 20-item dry-run protocol；未调用 LLM，未执行 600-item Annotation；下一任务为 Gate 2C annotator configuration、prompt contract、annotation artifacts 和 dry-run protocol 评审冻结 |
