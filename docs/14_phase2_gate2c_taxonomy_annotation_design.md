@@ -3,20 +3,20 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Gate 2C Taxonomy Annotation Execution Design
 Version: 0.1
-Status: Draft - Awaiting Annotator Configuration Review
+Status: Reviewed - Awaiting Dry-run Authorization
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C Taxonomy Annotation Execution Design
+Current Task: Gate 2C 20-item Annotation Dry-run Review
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档目的与边界
 
 Gate 2B 已通过。Project Owner 接受 annotation-side Retry，并拒绝 automatic
-pre-annotation OCR trigger。本文件只建立 Gate 2C 的执行设计骨架，用于在实际模型调用前
-冻结 Annotator 配置、Annotation Artifact、Evidence retry semantics 和 20-item dry-run
-协议。
+pre-annotation OCR trigger。本文件冻结 Gate 2C-A 的执行设计，以及 Gate 2C-B 的首轮
+Annotator model/provider 候选、Annotation Artifact、Evidence retry semantics 和 20-item
+dry-run 协议。
 
-本文件不选择实际 Annotator model，不调用 LLM，不执行 600-item Annotation，不执行
-Source Selection，也不生成 Benchmark、Ground Truth 或新的 767-item OCR Runtime。
+本文件不调用 LLM，不执行 20-item 或 600-item Annotation，不执行 Source Selection，也不
+生成 Benchmark、Ground Truth 或新的 767-item OCR Runtime。
 Taxonomy 的具体内容仍以现有 Taxonomy Design 和后续正式决策为准，本文件不重新设计
 Domain Taxonomy。
 
@@ -52,12 +52,13 @@ Gate 2C 属于 Phase 2 内部执行分层，不改变项目 Phase 定义：
 
 | Sub-gate | 名称 | 本阶段目的 | 当前状态 |
 | --- | --- | --- | --- |
-| Gate 2C-A | Annotation Execution Design Freeze | 冻结 Annotator 配置、prompt、Schema、retry、Artifact 和处理逻辑 | 待评审 |
-| Gate 2C-B | 20-item Annotation Dry-run | 验证 A/B 独立标注、Evidence retry、重跑和 Artifact 写入 | 待 Gate 2C-A |
+| Gate 2C-A | Annotation Execution Design Freeze | 冻结 Annotator 配置、prompt、Schema、retry、Artifact 和处理逻辑 | Design frozen；等待 Review |
+| Gate 2C-B | 20-item Annotation Dry-run | 验证 A/B 独立标注、Evidence retry、重跑和 Artifact 写入 | 等待授权 |
 | Gate 2C-C | Full 600-item Taxonomy Calibration | 在 dry-run 通过后执行完整 Main Sample 双 Annotator Calibration | 未授权 |
 | Gate 2C-D | Calibration Review + Taxonomy Decision + Source Selection Policy Freeze | 汇总 agreement/conflict、人工复核和 Source Selection Policy 决策 | 未授权 |
 
-在 Gate 2C-A 和 Gate 2C-B 完成并通过前，不执行完整 600-item 双 Annotator Annotation。
+在 Gate 2C-A Review 和 Gate 2C-B 授权前，不执行任何 20-item dry-run 或完整 600-item
+双 Annotator Annotation。
 
 ## 4. Evidence v0.3 Adaptive Workflow
 
@@ -87,6 +88,24 @@ Stage 4 只有在 retry 条件满足时执行一次 RapidOCR。Stage 5 生成同
 Gate 2C 使用 `docs/11_phase2_taxonomy_calibration_and_source_selection.md` 中已有的
 Annotation Schema，并增加以下独立字段：
 
+### 5.1 Canonical Annotation Record Fields
+
+每条最终有效 Annotation Record 至少包含以下字段：
+
+| Field group | Fields |
+| --- | --- |
+| Identity | `gate2c_run_id`、`annotation_record_id`、`calibration_sample_id`、`calibration_item_id`、`annotator_id`、`annotation_pass` |
+| Source provenance | `relative_path`（仅保留在 Artifact；不得进入 Annotator Prompt） |
+| Contract revisions | `taxonomy_revision`、`prompt_revision`、`schema_revision`、`evidence_revision` |
+| Taxonomy | `primary_domain`、`secondary_domains`、`taxonomy_fit`、`confidence` |
+| Evidence support | `evidence_usability`、`evidence_keywords`、`evidence_rationale`、`review_note` |
+| Routing / review | `requires_evidence_retry`、`review_status`、`superseded`、`superseded_reason` |
+| Provider metadata | `provider`、`requested_model`、`resolved_model`、`model_version_if_available`、`request_id`、`started_at`、`completed_at`、`input_tokens`、`output_tokens`、`reasoning_tokens_if_available`、`latency_ms` |
+| Reproducibility | `prompt_hash`、`taxonomy_payload_hash`、`schema_hash`、`peer_annotation_visible` |
+
+Provider 不可提供的 metadata 字段写 `null`，不得伪造。`peer_annotation_visible` 必须为
+`false`。
+
 | Field | 说明 |
 | --- | --- |
 | `evidence_usability` | 允许值：`usable` / `partially_usable` / `unreadable` / `insufficient` |
@@ -115,14 +134,25 @@ requires_evidence_retry = true
 仍能确定 `primary_domain` 且 `confidence != low`，可以继续进入 Agreement Logic。
 `confidence = low` 进入 Review Queue，但不单独触发 OCR。
 
+### 5.2 Canonical Enum 与输出约束
+
+- `primary_domain`：`D01`–`D12`、`OUT_OF_SCOPE`、`UNCERTAIN`；
+- `secondary_domains`：JSON array，0–3 个、唯一、只能为 D01–D12，且不能包含 `primary_domain`；
+- `taxonomy_fit`：`clear_fit` / `cross_domain` / `ambiguous` / `taxonomy_gap` /
+  `out_of_scope` / `insufficient_evidence`；
+- `confidence`：`high` / `medium` / `low`，不使用数字概率；
+- `evidence_keywords`：`array[str]`，建议 0–8 个，只能来自输入 Evidence 的短语或概念；
+- `evidence_rationale`：1–3 个简洁句子，不要求或保存 Chain-of-Thought；
+- `review_note`：短文本或 `null`。
+
 ## 6. Retry 与 A/B 一致性 Contract
 
 ### 6.1 First-pass 处理
 
 Annotation A1 和 Annotation B1 都使用同一份 PyMuPDF Primary Evidence。A1 不看 B1，B1
-不看 A1。每个 Annotator 仍独立记录 `annotator_id`、`annotation_pass`、model/provider/
-version（待 Gate 2C-A 冻结）、prompt revision、schema revision、Taxonomy revision 和
-inference parameters。
+不看 A1。每个 Annotator 仍独立记录 `annotator_id`、`annotation_pass`、model/provider/version
+（首轮候选配置已冻结；可用版本和 Provider capability check 结果按 Run manifest 记录）、
+prompt revision、schema revision、Taxonomy revision 和 inference parameters。
 
 ### 6.2 Retry 触发与首轮结果处理
 
@@ -165,18 +195,17 @@ Review Queue，不得无限 retry，也不得自动标记为 `sufficient`。
 
 ## 7. Gate 2C Artifact Layout
 
-每次 Gate 2C Run 使用独立的 `<gate2c_run_id>`，Artifact Layout 设计为：
+每次 Gate 2C Run 使用独立的 `<gate2c_run_id>`，采用合并 Attempt 与 Final 的 Artifact
+设计，避免为同一内容维护四份重复文件。Artifact Layout 为：
 
 ```text
 /data/suzhe/migb/
   phase2/
     runs/
       <gate2c_run_id>/
-        annotation_pass_a.jsonl
-        annotation_pass_b.jsonl
-        evidence_retries.jsonl
-        annotation_final_a.jsonl
-        annotation_final_b.jsonl
+        annotation_attempts.jsonl
+        annotation_final.parquet
+        evidence_retries.parquet
         taxonomy_agreements.parquet
         taxonomy_conflicts.parquet
         manifest.json
@@ -185,27 +214,26 @@ Review Queue，不得无限 retry，也不得自动标记为 `sufficient`。
 
 | Artifact | 用途 |
 | --- | --- |
-| `annotation_pass_a.jsonl` | Annotator A 的首轮结果和配置 provenance |
-| `annotation_pass_b.jsonl` | Annotator B 的首轮结果和配置 provenance |
-| `evidence_retries.jsonl` | retry 请求、原因、fallback 参数、前后 Evidence revision 和结果 |
-| `annotation_final_a.jsonl` | 使用最终 Evidence 的 A2 结果；无 retry 时可引用 A1 |
-| `annotation_final_b.jsonl` | 使用最终 Evidence 的 B2 结果；无 retry 时可引用 B1 |
+| `annotation_attempts.jsonl` | 每个实际模型 attempt，包括 A1、B1、A2、B2 和允许的 format retry，以及配置 provenance |
+| `annotation_final.parquet` | 每个 `calibration_item_id × annotator_id` 一行，只指向最终有效 Annotation |
+| `evidence_retries.parquet` | 每个发生 retry 的 Item 一行，记录触发方、原因、前后 Evidence revision 和 OCR 参数 |
 | `taxonomy_agreements.parquet` | 通过既定 Agreement Logic 的合并结果 |
 | `taxonomy_conflicts.parquet` | 冲突、低置信度、taxonomy gap 或需人工 Review 的结果 |
 | `manifest.json` | Run identity、输入 Artifact、版本、Schema、配置引用和 checksum |
 | `statistics.json` | item accounting、retry、agreement、conflict、deferred 和错误统计 |
 
-如果某 Item 没有 retry，`annotation_final_a` / `annotation_final_b` 可以通过
+如果某 Item 没有 retry，`annotation_final.parquet` 可以通过
 `first_pass_artifact_ref` 或等价 reference 表示 first pass 即 final，不要求复制大型
-Evidence 文本。若发生 retry，Artifact 必须同时保留 A1/B1 audit provenance 与 A2/B2
-最终结果。
+Evidence 文本。若发生 retry，`annotation_attempts.jsonl` 必须同时保留 A1/B1 audit
+provenance 与 A2/B2 最终结果；`annotation_final.parquet` 只保留 A2/B2 的最终有效引用。
 
-具体字段、序列化方式、checksum convention 和 failure semantics 在 Gate 2C-A 冻结；
+具体字段、序列化方式、checksum convention 和 failure semantics 已在 Gate 2C-A 冻结；
 本文件当前不创建上述远程目录或 Runtime Artifact。
 
 ## 8. Annotator Configuration Freeze Boundary
 
-以下配置必须在 Gate 2C-A 冻结，但当前不擅自给出具体模型或参数：
+以下配置在 Gate 2C-A 中已冻结；Provider capability check 尚未确定的运行时参数保持
+`TBD`：
 
 ```text
 Annotator A model
@@ -229,8 +257,93 @@ review queue
 cost / accounting
 ```
 
-Actual Model A / Model B、provider、版本和 inference parameters 保持 `TBD`，不得在本
-设计文档中替代为具体选择。Gate 2C-A 评审完成前不调用任何模型。
+Actual Model A / Model B 的首轮候选已在本次 Gate 2C-A 中冻结；Provider capability check
+尚未完成的具体 inference parameters 仍保持 `TBD`。Gate 2C-A 评审完成前不调用任何模型。
+
+### 8.1 Frozen Annotator Configuration
+
+Gate 2C-B 的首轮候选配置冻结为：
+
+| Annotator | Provider | Model | Low-variance setting | Credential environment variable |
+| --- | --- | --- | --- | --- |
+| A (`annotator_a`) | `openai` | `gpt-5.6-sol` | `reasoning_effort=low` | `OPENAI_API_KEY` |
+| B (`annotator_b`) | `glm` | `glm-5.2` | provider capability check required；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
+
+配置文件为 `configs/phase2/gate2c_annotation_v0.1.yaml`。不设置或硬编码
+`temperature`、`top_p`；Provider 支持的低随机性参数必须在 dry-run 前通过 capability
+check 并写入 Run manifest。`max_output_tokens=2048`、`max_transport_retries=3`、
+`max_format_retries=1` 已记录在配置中。
+
+API Key 只能从环境变量读取；真实值不得写入 YAML、JSON、源代码、manifest、report 或
+Git。当前配置明确关闭 network、external tools 和 RAG；本轮不发起远程请求。
+
+### 8.2 Taxonomy Snapshot
+
+Annotator 使用由 `docs/02_benchmark_taxonomy.md` 生成的独立快照：
+
+```text
+path: configs/phase2/taxonomy_annotation_v0.1.yaml
+taxonomy_revision: taxonomy-v0.1
+source_document: docs/02_benchmark_taxonomy.md
+source_commit: 56549b9c8560668b1f069e35adc991fbff639446
+payload_hash: 8a92039a394feac87edf6ff020fd6eb522689f364fe7f1a887a4bd12efd4a942
+```
+
+快照提供 D01–D12 的 `domain_id`、`domain_name`、`definition`、in-scope concepts 和
+boundary notes，不能只向模型提供 D01、D02 等裸 ID。快照 hash 必须在每条 Annotation
+Attempt 和 Run manifest 中记录。
+
+### 8.3 Prompt 与 Schema Snapshot
+
+Canonical Prompt renderer 位于 `src/migb/phase2/annotation/prompt.py`，固定输出以下
+顺序的 sections：
+
+```text
+SYSTEM
+TAXONOMY
+EVIDENCE QUALITY RULES
+ANNOTATION RULES
+DOCUMENT METADATA
+EVIDENCE
+OUTPUT CONTRACT
+```
+
+```text
+prompt_revision: taxonomy-annotation-prompt-v0.1
+prompt_template_hash: 0a757150405b2de98dc3a06c43e9fc42ef0609c45e9ef176b7e10f64db5dab80
+schema_revision: taxonomy-annotation-schema-v0.1
+schema_path: schemas/phase2/taxonomy_annotation_v0.1.json
+schema_hash: 54bd72e898faf3305bfd4a189d2d0435519f6a6df2dd1e5fe23da59701632c13
+```
+
+`prompt_template_hash` 是规范占位渲染的 hash；每个实际 Item 仍必须记录精确渲染结果的
+`prompt_hash`。Schema 优先使用 strict structured output；无论 Provider 是否声称支持
+structured output，都必须由本地 parser 再次校验。解析失败记录
+`parse_status=failed`；不调用第二个 LLM 修复 JSON，最多按完整原任务执行一次 format
+retry。
+
+Prompt 禁止 web、tools、RAG、external retrieval、previous annotation、previous
+document 和带答案示例。输入只包含允许的 Document Metadata、Final Evidence 和 Taxonomy
+definition；不发送 `parent_group`、relative path directory、Gate 2B manual label、
+Problem / Control identity 或其他 Annotator output。
+
+### 8.4 Provider Adapter Boundary
+
+Provider-specific code 位于：
+
+```text
+src/migb/phase2/annotation/__init__.py
+src/migb/phase2/annotation/schema.py
+src/migb/phase2/annotation/prompt.py
+src/migb/phase2/annotation/adapters.py
+src/migb/phase2/annotation/agreement.py
+src/migb/phase2/annotation/retry.py
+src/migb/phase2/annotation/artifacts.py
+```
+
+实现包含 `OpenAIAnnotationAdapter` 和 `GLMAnnotationAdapter`。Adapter 只构造 provider-
+shaped request、解析提供的 mock response 和返回统一 canonical schema；`infer()` 在
+Gate 2C-A 明确抛出 disabled error，不导入 Provider SDK，也不发送请求。
 
 ## 9. Gate 2C-B 20-item Dry-run Protocol
 
@@ -287,10 +400,82 @@ Gate 2C-B 至少检查：
 - A2/B2 使用同一份 Final Evidence；
 - A1/B1 在 retry 后不进入最终 Agreement / Conflict metrics；
 - A/B 看不到彼此输出及 Problem / Control 标签；
-- `evidence_retries.jsonl`、final annotations、agreements、conflicts、manifest 和
+- `annotation_attempts.jsonl`、`annotation_final.parquet`、`evidence_retries.parquet`、agreements、conflicts、manifest 和
   statistics 可相互追溯；
 - text_absent 和 source_quality_exception 不因 dry-run 被扩大处理；
 - Source PDF 与 Gate 2B canonical Artifact 未被修改。
+
+### 9.4 Dry-run 指标与判定
+
+Gate 2C-B 还必须记录：
+
+```text
+retry_triggered_by_a
+retry_triggered_by_b
+retry_triggered_by_either
+false_retry_count
+false_retry_rate
+valid_structured_output_rate
+format_retry_count
+```
+
+其中 `false_retry_count` / `false_retry_rate` 以原 16 个 non-problem Items 为观察分母，
+当前不冻结硬阈值；若 `false_retry_rate > 25%`，必须重点 Review Prompt。Structured
+Output 在允许一次 format retry 后必须达到 100%；初始目标为 valid structured output
+至少 95%，否则 Gate 2C-B 不通过。发生 Evidence retry 的 Item，A2/B2 对同一
+`final_evidence_revision` 的引用必须为 100%。
+
+Annotator independence 至少通过请求和 Artifact 检查：
+
+```text
+A request contains no B response
+B request contains no A response
+peer_annotation_visible = false
+```
+
+Gate 2C-B 不执行 `provisionally_agreed` 的 10% Human Audit；该人工审计在完整 Gate
+2C-C 后按既有 Taxonomy Contract 执行。
+
+### 9.5 Gate 2C-B Verdict
+
+允许的 dry-run Verdict 为：
+
+```text
+PASS
+PASS WITH PROMPT REVISION
+FAIL
+```
+
+`PASS` 至少要求 20 / 20 processed、A/B independence、structured output、OCR retry
+pipeline、Problem-item either-annotator retry recall `>= 3 / 4` 和 Artifact validation
+全部通过。若 Pipeline 可用但出现 excessive false retry、边界处理问题或系统性 confidence
+误用，则为 `PASS WITH PROMPT REVISION`，修改 Prompt 后使用新的 Dry-run Run。出现 A/B
+污染、不同 Final Evidence、provenance 断裂、Schema 解析不可靠或 Provider integration
+系统性失败，则为 `FAIL`。
+
+### 9.6 Cost、Run Identity 与运行安全
+
+每次 Run 的 `statistics.json` 至少统计：
+
+```text
+request_count
+successful_request_count
+retry_request_count
+input_tokens
+output_tokens
+provider_reported_cost_if_available
+estimated_cost
+```
+
+成本是 operational metric，不影响 taxonomy label。Run ID 采用：
+
+```text
+g2c-dryrun-YYYYMMDDTHHMMSSZ-<gitsha7>
+g2c-full-YYYYMMDDTHHMMSSZ-<gitsha7>
+```
+
+正式运行沿用项目规则，要求 `dirty=false`。Gate 2C-A 只创建设计、配置和 code，不创建
+Runtime Annotation Artifact。
 
 ## 10. Gate 2C-C 与 Gate 2C-D 的进入条件
 
@@ -321,12 +506,13 @@ Owner Review 和 Parent Group × Domain 分析后，才进入 Gate 2C-D，决定
 ```text
 Gate 2B: PASSED
 Evidence Contract: evidence-v0.3-adaptive-v0.1
-Gate 2C: AUTHORIZED FOR DESIGN AND 20-ITEM DRY-RUN ONLY
+Gate 2C-A: DESIGN FROZEN; AWAITING REVIEW
+Gate 2C-B: DRY-RUN AWAITING AUTHORIZATION
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 LLM calls: NOT EXECUTED
 ```
 
-下一步必须先评审并冻结：
+下一步必须先完成 Gate 2C-A Review，并由 Project Owner 单独授权 Gate 2C-B：
 
 ```text
 Gate 2C annotator configuration,
@@ -335,4 +521,4 @@ annotation artifacts,
 and 20-item dry-run protocol
 ```
 
-在上述内容冻结前，不调用任何 LLM。
+在上述内容完成 Review 且 Gate 2C-B 获得授权前，不调用任何 LLM。

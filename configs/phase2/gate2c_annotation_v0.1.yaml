@@ -1,0 +1,39 @@
+annotation_revision: taxonomy-annotation-v0.1
+prompt_revision: taxonomy-annotation-prompt-v0.1
+schema_revision: taxonomy-annotation-schema-v0.1
+taxonomy_revision: taxonomy-v0.1
+taxonomy_snapshot: configs/phase2/taxonomy_annotation_v0.1.yaml
+taxonomy_payload_hash: 8a92039a394feac87edf6ff020fd6eb522689f364fe7f1a887a4bd12efd4a942
+prompt_template_hash: 0a757150405b2de98dc3a06c43e9fc42ef0609c45e9ef176b7e10f64db5dab80
+schema_hash: 54bd72e898faf3305bfd4a189d2d0435519f6a6df2dd1e5fe23da59701632c13
+prompt_hash_scope: exact rendered item prompt; recorded per annotation attempt
+
+execution:
+  network_enabled: false
+  external_tools_enabled: false
+  rag_enabled: false
+  max_output_tokens: 2048
+  max_transport_retries: 3
+  max_format_retries: 1
+  max_evidence_retry_count: 1
+
+annotators:
+  a:
+    annotator_id: annotator_a
+    provider: openai
+    model: gpt-5.6-sol
+    reasoning_effort: low
+    api_key_env: OPENAI_API_KEY
+
+  b:
+    annotator_id: annotator_b
+    provider: glm
+    model: glm-5.2
+    api_key_env: GLM_API_KEY
+    base_url_env: GLM_BASE_URL
+    low_variance_configuration: TBD
+
+credentials:
+  openai_api_key_env: OPENAI_API_KEY
+  glm_api_key_env: GLM_API_KEY
+  glm_base_url_env: GLM_BASE_URL

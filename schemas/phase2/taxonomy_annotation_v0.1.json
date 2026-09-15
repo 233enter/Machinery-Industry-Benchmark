@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "taxonomy-annotation-schema-v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "primary_domain",
+    "secondary_domains",
+    "taxonomy_fit",
+    "confidence",
+    "evidence_usability",
+    "evidence_keywords",
+    "evidence_rationale",
+    "review_note"
+  ],
+  "properties": {
+    "primary_domain": {
+      "type": "string",
+      "enum": [
+        "D01",
+        "D02",
+        "D03",
+        "D04",
+        "D05",
+        "D06",
+        "D07",
+        "D08",
+        "D09",
+        "D10",
+        "D11",
+        "D12",
+        "OUT_OF_SCOPE",
+        "UNCERTAIN"
+      ]
+    },
+    "secondary_domains": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "D01",
+          "D02",
+          "D03",
+          "D04",
+          "D05",
+          "D06",
+          "D07",
+          "D08",
+          "D09",
+          "D10",
+          "D11",
+          "D12"
+        ]
+      }
+    },
+    "taxonomy_fit": {
+      "type": "string",
+      "enum": [
+        "clear_fit",
+        "cross_domain",
+        "ambiguous",
+        "taxonomy_gap",
+        "out_of_scope",
+        "insufficient_evidence"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "evidence_usability": {
+      "type": "string",
+      "enum": ["usable", "partially_usable", "unreadable", "insufficient"]
+    },
+    "evidence_keywords": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_note": {
+      "type": ["string", "null"]
+    }
+  }
+}

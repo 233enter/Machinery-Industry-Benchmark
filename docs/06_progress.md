@@ -4,9 +4,9 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2C Taxonomy Annotation Execution Design
+Current Task: Gate 2C 20-item Annotation Dry-run Review
 
-Next Task: Review and freeze Gate 2C annotator configuration, prompt contract, annotation artifacts, and 20-item dry-run protocol before any LLM call.
+Next Task: Review Gate 2C-A annotator configuration, prompt, schema, provider adapters and dry-run protocol, then authorize the 20-item dual-annotator dry-run.
 
 ## Current Status
 
@@ -32,7 +32,7 @@ Next Task: Review and freeze Gate 2C annotator configuration, prompt contract, a
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2C Taxonomy Annotation Execution Design
+- Current Task: Gate 2C 20-item Annotation Dry-run Review
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
@@ -46,7 +46,7 @@ Next Task: Review and freeze Gate 2C annotator configuration, prompt contract, a
 - Evidence Contract: `evidence-v0.3-adaptive-v0.1`。
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
-- Gate 2C: AUTHORIZED FOR DESIGN AND 20-ITEM DRY-RUN ONLY。
+- Gate 2C-A Design Freeze: Completed；等待 Review。Gate 2C-B 20-item dry-run 尚未授权。
 
 ## 当前进展
 
@@ -94,12 +94,12 @@ Next Task: Review and freeze Gate 2C annotator configuration, prompt contract, a
 - 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结。
 - 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；Owner 接受 annotation-side retry、拒绝 automatic pre-annotation OCR trigger。
 - 完成 Gate 2B Adaptive Evidence Closeout：Gate 2B Final Verdict 为 `PASSED`；Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 为 `CANCELLED / NOT REQUIRED`；Gate 2B canonical Runtime 保持 immutable。
-- 建立 Gate 2C 执行设计骨架：Gate 2C-A/B/C/D、A/B same-final-Evidence、retry semantics 和 20-item dry-run protocol；当前不调用 LLM、不执行 600-item Annotation。
+- 完成 Gate 2C-A Design Freeze：冻结 annotator 配置、prompt、schema、provider adapter、retry semantics、Artifact 设计和 20-item dry-run protocol；当前不调用 LLM、不执行 20-item 或 600-item Annotation。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review and freeze Gate 2C annotator configuration, prompt contract, annotation artifacts, and 20-item dry-run protocol before any LLM call.
+Review Gate 2C-A annotator configuration, prompt, schema, provider adapters and dry-run protocol, then authorize the 20-item dual-annotator dry-run.
 
 ## 变更记录
 
@@ -136,3 +136,4 @@ Review and freeze Gate 2C annotator configuration, prompt contract, annotation a
 | 2026-09-15 | 完成 Evidence v0.3 OCR Routing Signal Calibration：读取既有 767-item canonical Evidence，生成独立 Quality Signals Artifact；最佳 100% garbled recall 规则的 Main Triggered Rate 为 48.0%，不满足 15% 工程指导线；冻结 annotation-side retry contract，Automatic OCR Trigger 未冻结，Full 767-item Runtime 暂不授权；下一任务为 Gate 2B Routing Contract Gate Decision |
 | 2026-09-15 | Project Owner 接受 Annotation-side Retry、拒绝 Automatic pre-annotation OCR trigger；Gate 2B Adaptive Evidence Closeout 完成并通过，Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 取消且不再需要；下一任务为 Gate 2C Taxonomy Annotation Execution Design |
 | 2026-09-15 | 建立 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`：仅冻结 Gate 2C-A/B/C/D 执行骨架、A/B same-final-Evidence、retry semantics 和 20-item dry-run protocol；未调用 LLM，未执行 600-item Annotation；下一任务为 Gate 2C annotator configuration、prompt contract、annotation artifacts 和 dry-run protocol 评审冻结 |
+| 2026-09-15 | 完成 Gate 2C-A Design Freeze：确定 Annotator A=`openai/gpt-5.6-sol`、Annotator B=`glm/glm-5.2`，建立 Taxonomy/Prompt/Schema snapshot、offline provider adapter、Retry/Agreement/Artifact contract 和 unit tests；未调用 LLM，等待 20-item dual-annotator dry-run 授权 |

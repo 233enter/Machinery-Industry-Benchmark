@@ -1,0 +1,190 @@
+taxonomy_revision: taxonomy-v0.1
+source_document: docs/02_benchmark_taxonomy.md
+source_commit: 56549b9c8560668b1f069e35adc991fbff639446
+payload_hash: 8a92039a394feac87edf6ff020fd6eb522689f364fe7f1a887a4bd12efd4a942
+
+domains:
+  - domain_id: D01
+    domain_name: Engineering Fundamentals & Mechanics
+    definition: 工程基础与力学。
+    in_scope_examples:
+      - Statics
+      - Dynamics
+      - Strength of Materials / Mechanics of Materials
+      - Vibration
+      - Friction & Tribology Fundamentals
+      - Basic Engineering Mathematics / Physical Relations
+    boundary_notes:
+      - 只收录直接服务机械工业问题的工程基础，不把整个数学或物理学科纳入 Benchmark。
+
+  - domain_id: D02
+    domain_name: Engineering Materials & Heat Treatment
+    definition: 工程材料与热处理。
+    in_scope_examples:
+      - Ferrous Materials
+      - Non-ferrous Materials
+      - Polymers / Composites
+      - Material Properties
+      - Material Applications & Selection Principles
+      - Heat Treatment
+      - Surface Treatment
+      - Material Failure Fundamentals
+    boundary_notes:
+      - Polymers / Composites 是否进入最终覆盖范围，需结合 Candidate Source Corpus 校准。
+
+  - domain_id: D03
+    domain_name: Mechanical Design & Machine Elements
+    definition: 机械设计与机械零部件。
+    in_scope_examples:
+      - Shafts
+      - Bearings
+      - Gears
+      - Fasteners
+      - Springs
+      - Couplings
+      - Keys / Splines
+      - Belt / Chain Drives
+      - Seals
+      - Lubrication
+      - Structural Design Fundamentals
+    boundary_notes:
+      - 轴承等零部件的知识对象归入本 Domain；Fault Diagnosis 等认知动作由 Capability / Task 表达。
+
+  - domain_id: D04
+    domain_name: Mechanisms & Mechanical Transmission
+    definition: 机构与机械传动。
+    in_scope_examples:
+      - Linkage Mechanisms
+      - Cam Mechanisms
+      - Gear Trains
+      - Motion / Force Transmission
+      - Speed / Torque Relations
+      - Kinematics of Mechanisms
+    boundary_notes:
+      - D03 与 D04 的边界需根据 Corpus Inventory、题目可构建性和知识对象边界进一步评估。
+
+  - domain_id: D05
+    domain_name: Manufacturing Processes & Machine Tools
+    definition: 机械制造工艺与机床。
+    in_scope_examples:
+      - Turning
+      - Milling
+      - Drilling
+      - Grinding
+      - Casting
+      - Forging
+      - Welding
+      - Sheet Metal / Forming
+      - Additive Manufacturing
+      - Machining Parameters
+      - Process Planning
+      - Machine Tools
+      - Cutting Tools
+    boundary_notes:
+      - 领域范围聚焦机械制造工艺、机床、刀具和工艺参数，不扩展为一般制造业 Benchmark。
+
+  - domain_id: D06
+    domain_name: Tolerance, Metrology & Quality
+    definition: 公差、测量与质量。
+    in_scope_examples:
+      - Dimensional Tolerance
+      - Fits
+      - Geometric Tolerance / GD&T
+      - Surface Roughness
+      - Measurement Instruments
+      - Measurement Methods
+      - Error / Uncertainty Fundamentals
+      - Inspection
+      - Quality Control
+    boundary_notes:
+      - 工程图中的配合、公差和技术要求按实际知识对象归入本 Domain，不因输入形式自动归入 D07。
+
+  - domain_id: D07
+    domain_name: Engineering Drawing & Digital Design Representation
+    definition: 工程制图与数字化设计表达。
+    in_scope_examples:
+      - Projection
+      - Views
+      - Section Views
+      - Dimensioning
+      - Drawing Symbols
+      - Part Drawing
+      - Assembly Drawing
+      - BOM / Title Block
+      - CAD Representation Fundamentals
+    boundary_notes:
+      - 只评估工程设计表达的理解，不评估 CAD 文件直接生成质量。
+      - 图纸中的具体公差或配合知识对象可归入 D06，不因图纸输入自动归入 D07。
+
+  - domain_id: D08
+    domain_name: Hydraulics, Pneumatics & Fluid Power
+    definition: 液压、气动与流体传动。
+    in_scope_examples:
+      - Hydraulic Components
+      - Pneumatic Components
+      - Pumps / Actuators
+      - Valves
+      - Circuits
+      - Pressure / Flow Relations
+      - Fluid Power System Architecture & Applications
+      - Operating Characteristics & Principles
+    boundary_notes:
+      - 关注与机械设备和流体传动相关的元件、回路、关系和应用。
+
+  - domain_id: D09
+    domain_name: Thermo-fluid & Energy Systems
+    definition: 热流体与动力系统基础。
+    in_scope_examples:
+      - Thermodynamics Fundamentals
+      - Heat Transfer
+      - Fluid Mechanics
+      - Pumps / Fans / Compressors
+      - Thermal Equipment
+      - Energy / Power Relations
+    boundary_notes:
+      - 只保留与机械工业和机械设备高度相关的热流体、能量和动力系统内容。
+
+  - domain_id: D10
+    domain_name: Mechatronics, Sensors, Control & Automation
+    definition: 机电、传感与控制。
+    in_scope_examples:
+      - Sensors
+      - Actuators
+      - Motors
+      - Drives
+      - Basic Control
+      - PLC / Industrial Control Fundamentals
+      - Motion Control
+      - Mechatronic Systems
+    boundary_notes:
+      - 本 Domain 不扩展为完整电子、计算机或 AI Benchmark。
+
+  - domain_id: D11
+    domain_name: Equipment Operation, Maintenance & Reliability
+    definition: 设备运行、维护与可靠性。
+    in_scope_examples:
+      - Installation
+      - Commissioning
+      - Operation
+      - Maintenance
+      - Lubrication Practice
+      - Wear
+      - Failure Modes
+      - Reliability
+      - Condition Monitoring
+    boundary_notes:
+      - Fault Diagnosis 更主要作为 Capability / Task；具体设备或零部件仍按其知识对象确定 Domain。
+
+  - domain_id: D12
+    domain_name: Standards, Safety & Engineering Practice
+    definition: 标准、安全与工程实践。
+    in_scope_examples:
+      - Engineering Standards
+      - Technical Specifications
+      - Safety Requirements
+      - Compliance
+      - Engineering Conventions
+      - Industrial Terminology
+      - General Engineering Practice
+    boundary_notes:
+      - D12 具有 Cross-domain 特征，Phase 2 需判断其是否继续作为独立 Domain，或更多转为 Capability / Metadata。

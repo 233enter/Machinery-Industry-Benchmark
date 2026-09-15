@@ -5,7 +5,7 @@ Document: Phase 2 Taxonomy Calibration & Source Selection Design
 Version: 0.1
 Status: Reviewed - Baseline
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C Taxonomy Annotation Execution Design
+Current Task: Gate 2C 20-item Annotation Dry-run Review
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档定位与设计边界
@@ -620,8 +620,9 @@ Pass A 不看 Pass B，Pass B 不看 Pass A。首轮两个 Pass 使用相同的 
 Evidence Contract、Taxonomy Definition 和标注 Schema，但保持输出独立。如果任一 Pass
 触发 Evidence retry，A1/B1 只保留 audit provenance，不进入最终 agreement、conflict 或
 taxonomy metrics；RapidOCR 生成同一份 final Evidence 后，必须使用相同的 final Evidence、
-Taxonomy revision、prompt revision 和 schema revision 重跑 A/B。实际 Annotator model ID
-延后至 Gate 2C execution config 冻结，本设计不擅自指定具体模型。
+Taxonomy revision、prompt revision 和 schema revision 重跑 A/B。首轮 Annotator model ID
+已记录在 Gate 2C execution config；Provider capability check 尚未确定的具体 inference
+parameters 仍待 Gate 2C-B 前冻结。
 
 ### 11.3 Agreement 与 Conflict
 
@@ -1042,7 +1043,8 @@ Gate 2B 不进行 60454 文档的大规模 Corpus Classification。
 
 ### Gate 2C — Taxonomy Calibration & Policy Freeze
 
-Gate 2C 已获授权，但必须按以下顺序进入，不能在 Gate 2B 通过后直接执行完整 Annotation：
+Gate 2C-A 的执行设计已完成，但仍等待 Review；Gate 2C-B dry-run 需要单独授权，不能在
+Gate 2B 通过后直接执行 Annotation：
 
 ```text
 Gate 2C-A  Annotation Execution Design Freeze
@@ -1051,9 +1053,10 @@ Gate 2C-C  Full 600-item Taxonomy Calibration
 Gate 2C-D  Calibration Review + Taxonomy Decision + Source Selection Policy Freeze
 ```
 
-Gate 2C-A 和 Gate 2C-B 通过前，不执行完整 600-item 双 Annotator Annotation。Gate 2C
-执行骨架见 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`；实际 Annotator model
-ID、provider、prompt 和 inference parameters 仍待 Gate 2C-A 冻结。
+Gate 2C-A Review 和 Gate 2C-B 授权前，不执行 20-item dry-run 或完整 600-item 双
+Annotator Annotation。Gate 2C 执行骨架见 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`；
+实际 Annotator model 已按候选配置记录，Provider capability check 尚未完成的具体
+inference parameters 仍待冻结。
 
 完成：
 
@@ -1102,7 +1105,8 @@ Phase 3 - Corpus Processing
 2. `base_quota=15/group` 是否冻结？—— `Resolved v0.1`
 3. `max_extracted_chars=12000` 是否合适？—— `Provisional v0.1 for Gate 2B`
 4. 只抽前 3 页是否足以判断 Domain？—— `Provisional v0.1 for Gate 2B`
-5. LLM Annotation 使用哪两个独立 Annotator？—— `Deferred; freeze before Gate 2C execution`
+5. LLM Annotation 使用哪两个独立 Annotator？——
+   `Candidate configuration frozen in Gate 2C-A; Provider capability check remains before Gate 2C-B`
 6. `provisionally_agreed` Sample 的人工抽检比例是否为 10%？—— `Resolved v0.1; deterministic`
 7. Benchmark Source Corpus 是否需要数量目标？—— `Deferred to Gate 2C Source Selection Policy`
 8. `text_absent` 文档何时进行 OCR / visual routing？—— `Deferred; remains an independent Audit Pool and is not bulk-OCR'd in Gate 2C dry-run`
@@ -1123,7 +1127,7 @@ Phase 3 - Corpus Processing
 - 执行 Source Selection；
 - 创建 Benchmark Source Corpus Registry；
 - 运行 MinerU；
-- 在 Gate 2C-A 设计冻结和 Gate 2C-B dry-run 授权前运行 OCR；
+- 在 Gate 2C-A Review 和 Gate 2C-B dry-run 授权前运行 OCR；
 - 执行 Full PDF Parsing；
 - 生成 Benchmark Questions；
 - 生成 Ground Truth。

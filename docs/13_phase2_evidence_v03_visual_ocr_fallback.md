@@ -5,7 +5,7 @@ Document: Phase 2 Evidence v0.3 Visual/OCR Fallback
 Version: 0.1
 Status: Reviewed - Contract Frozen
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C Taxonomy Annotation Execution Design
+Current Task: Gate 2C 20-item Annotation Dry-run Review
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. Background
@@ -268,7 +268,8 @@ Automatic pre-annotation OCR: REJECTED
 Annotation-side OCR retry: ACCEPTED
 Evidence Contract: evidence-v0.3-adaptive-v0.1
 Gate 2B: PASSED
-Gate 2C: AUTHORIZED FOR DESIGN AND DRY-RUN ONLY
+Gate 2C-A: DESIGN FROZEN; AWAITING REVIEW
+Gate 2C-B: DRY-RUN AWAITING AUTHORIZATION
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 ```
 
@@ -443,20 +444,23 @@ Automatic pre-annotation OCR trigger: REJECTED
 
 `Automatic pre-annotation OCR trigger` 在技术上可以达到当前 4/4 garbled recall，但最佳
 候选会触发 288 / 600 Main（48.0%），作为 fallback 路径过宽，因此不冻结为生产规则。
-这表示 Gate 2C 已获授权进入设计和小规模 dry-run，不表示可以直接执行 600 条 Annotation。
+这表示 Gate 2C-A 已完成设计冻结，但 Gate 2C-B 仍需 Review 和单独授权，不表示可以直接执行
+20-item dry-run 或 600 条 Annotation。
 
-Gate 2C 必须先完成 `Gate 2C-A Annotation Execution Design Freeze`，再进行复用原 Gate 2B
-20-item Main Evidence Review Set 的 dry-run；在该设计冻结和 dry-run 通过前，不执行完整
+Gate 2C-A 的执行设计已完成；完成 Review 并获得 Gate 2C-B 单独授权后，才可进行复用原
+Gate 2B 20-item Main Evidence Review Set 的 dry-run；在 dry-run 通过前，不执行完整
 600-item 双模型 Annotation。具体执行骨架见
 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`。
 
 ```text
-Gate 2C: AUTHORIZED FOR DESIGN AND DRY-RUN ONLY
+Gate 2C-A: DESIGN FROZEN; AWAITING REVIEW
+Gate 2C-B: DRY-RUN AWAITING AUTHORIZATION
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 ```
 
 当前下一任务：
 
 ```text
-Gate 2C Taxonomy Annotation Execution Design
+Review Gate 2C-A annotator configuration, prompt, schema, provider adapters and dry-run protocol,
+then authorize the 20-item dual-annotator dry-run
 ```
