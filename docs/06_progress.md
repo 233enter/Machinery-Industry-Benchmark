@@ -4,9 +4,9 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2B Evidence v0.3 Implementation
+Current Task: Gate 2B Routing Contract Gate Decision
 
-Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
+Next Task: Project Owner 决定是否接受 annotation-side retry contract，并授权 Full 767-item Evidence v0.3 Runtime。
 
 ## Current Status
 
@@ -32,7 +32,7 @@ Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2B Evidence v0.3 Implementation
+- Current Task: Gate 2B Routing Contract Gate Decision
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
@@ -41,7 +41,9 @@ Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
 - Evidence v0.2 Diagnostic Design: Completed；仅为诊断设计，不授权 Full Gate 2B rerun；`pdftotext` 保持 diagnostic-only。
 - Evidence v0.3 OCR Runtime Capability Check: Completed；远程 `.venv` 已验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2` 和 `CPUExecutionProvider`。
 - Evidence v0.3 OCR Diagnostic: Completed；固定 8-item Diagnostic Set 已完成原始 PDF render + RapidOCR OCR，Problem 4/4 sufficient、Control 4/4 sufficient。
-- Evidence v0.3 Fallback Strategy: Frozen；当前默认 render DPI 为 200，Full 767-item Evidence v0.3 Runtime 仍未授权。
+- Evidence v0.3 Fallback Strategy: Frozen；当前默认 render DPI 为 200，Automatic OCR Routing Trigger 未冻结，采用 annotation-side retry contract。
+- Evidence v0.3 Routing Signal Calibration: Completed；4/4 reviewed garbled recall 的最优规则会触发 288/600 Main（48.0%），超过 15% 工程指导线。
+- Full 767-item Evidence v0.3 Runtime Authorization: Not Authorized；Case B 需要 Project Owner / Gate Decision 后才能决定是否执行。
 - Gate 2B Operational Status: HOLD；Gate 2C: NOT AUTHORIZED。
 
 ## 当前进展
@@ -88,11 +90,12 @@ Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
 - Evidence v0.2 仅完成 diagnostic design，Gate 2B 仍 HOLD；`pdftotext` 为 diagnostic-only；Evidence v0.3 fallback diagnostic 已完成，但 Full Evidence v0.2/v0.3 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry 仍未授权。
 - 完成 Evidence v0.3 OCR Runtime Capability Check：远程 `.venv` 安装并验证 `rapidocr==3.9.2`、`onnxruntime==1.23.2`，三个 ONNX Runtime session 均使用 `CPUExecutionProvider`；合成图中文/英文/数字识别通过。
 - 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结；Gate 2B 仍 HOLD。
+- 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；冻结 annotation-side retry contract，Full 767-item Runtime 暂不授权。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-在同一 767-item sample 上运行 Evidence v0.3。
+Project Owner / Gate Decision：确认是否接受 annotation-side retry contract，并决定是否授权在同一 767-item sample 上运行 Evidence v0.3。
 
 ## 变更记录
 
@@ -126,3 +129,4 @@ Next Task: 在同一 767-item sample 上运行 Evidence v0.3。
 | 2026-09-15 | 完成 8-file Evidence v0.2 Diagnostic Probe 和 diagnostic design：4 Problem + 4 Control；Probe B/C 均未将问题项提升到 sufficient；Gate 2B 保持 HOLD；下一任务为 Evidence v0.3 visual/OCR fallback 设计 |
 | 2026-09-15 | 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 与已检查的 Python OCR engines 均不可用；未执行 render/OCR；Gate 2B 保持 HOLD；下一任务为决定并提供最小中文 OCR dependency |
 | 2026-09-15 | 完成 Evidence v0.3 OCR Runtime 与固定 8-item Diagnostic：远程 `.venv` 使用 RapidOCR 3.9.2 + ONNX Runtime 1.23.2 CPU，Problem 4/4、Control 4/4 sufficient；选择并冻结 200 DPI fallback strategy；Gate 2B 仍 HOLD；下一任务为同一 767-item sample 上的 Evidence v0.3 Implementation |
+| 2026-09-15 | 完成 Evidence v0.3 OCR Routing Signal Calibration：读取既有 767-item canonical Evidence，生成独立 Quality Signals Artifact；最佳 100% garbled recall 规则的 Main Triggered Rate 为 48.0%，不满足 15% 工程指导线；冻结 annotation-side retry contract，Automatic OCR Trigger 未冻结，Full 767-item Runtime 暂不授权；下一任务为 Gate 2B Routing Contract Gate Decision |

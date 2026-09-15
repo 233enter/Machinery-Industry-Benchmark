@@ -3,9 +3,9 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Evidence v0.3 Visual/OCR Fallback
 Version: 0.1
-Status: Diagnostic Validated - Fallback Strategy Frozen
+Status: Reviewed - Contract Frozen
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2B Evidence v0.3 Implementation
+Current Task: Gate 2B Routing Contract Gate Decision
 
 ## 1. Background
 
@@ -88,8 +88,9 @@ first 3 pages + floor((N - 1) * 0.50) + floor((N - 1) * 0.75)
 
 P1、P2 在两个 DPI 下运行；根据识别质量和运行时间选择 200 DPI。最终 200 DPI 在 P1–P4
 和 C1–C4 上运行。每页都从原始 PDF 直接 render 到系统临时目录，处理结束后临时 PNG
-自动清理；没有写入 `/data/suzhe/migb/phase2/diagnostics/`、Source Root 或历史
-Runtime Artifact。
+自动清理；OCR Probe 本身没有写入 Source Root、历史 Runtime Artifact 或诊断输出目录。
+后续 routing signal calibration 只在诊断输出目录写入独立 `quality_signals.parquet`，不写回
+canonical Run。
 
 ## 5. OCR Configuration
 
@@ -207,9 +208,29 @@ printable_char_ratio
 evidence_char_count
 ```
 
-这些指标只能作为观察信号。本次仍不冻结 automatic OCR trigger threshold；尤其不允许以
-单一 Unicode 指标直接决定 `garbled` 或绕过人工 Review。当前 fallback 仍由
-`insufficient_evidence` / manual review 驱动。
+本次 routing calibration 另外计算并独立保存 `ascii_letter_count`、`cjk_char_count`、
+`digit_count`、`whitespace_count`、`whitespace_ratio` 和 `suspicious_char_rate` 等字段；
+完整字段及 Unicode 定义见 `reports/phase2/evidence_v03_routing_calibration_report.md`。
+
+本次在既有 767-item Evidence 上完成独立 Quality Signals 计算和有限 threshold enumeration。
+Quality Signals 属于 derived diagnostic data，不写回 `calibration_evidence.jsonl`，也不
+修改 Gate 2B canonical Runtime。
+
+结果表明，当前 20-item reviewed set 上没有简单规则能够同时满足：
+
+```text
+garbled recall = 100%
+AND
+600 Main triggered rate <= 15%
+```
+
+最优单 signal 为 `printable_char_ratio <= 0.9258285113098369`，可覆盖 4/4 garbled
+reference，但会触发 288/600 Main（48.0%）；最优 two-signal OR 规则没有降低该路由量。
+因此本次不冻结 `Automatic OCR Trigger v0.1`，也不以单一 Unicode 指标直接决定 `garbled`
+或绕过人工 Review。
+
+当前冻结为 annotation-side retry：先由 Gate 2C Annotator 检查 PyMuPDF Evidence，只有
+出现 `insufficient_evidence` / `unreadable` 才触发 RapidOCR fallback。
 
 ## 9. Root Cause Refinement
 
@@ -238,8 +259,11 @@ RapidOCR CPU Runtime: Available
 Evidence v0.3 OCR Probe: Passed (Problem 4/4, Control 4/4)
 Evidence v0.3 Fallback Strategy: Frozen
 Selected render DPI: 200
+Automatic OCR Routing Trigger: NOT FROZEN
+Routing contract: annotation-side retry
 Gate 2B: HOLD
 Gate 2C: NOT AUTHORIZED
+Full 767-item Evidence v0.3 Runtime: NOT AUTHORIZED
 ```
 
 `pdftotext -layout` 根据 Evidence v0.2 结果保持 `diagnostic-only`，不进入 Evidence
@@ -247,13 +271,14 @@ v0.3 fallback。Full 767-item Evidence v0.3 Runtime 仍需单独授权。
 
 ## 11. Evidence v0.3 Frozen Fallback Strategy
 
-当前冻结的候选生产路径为：
+当前冻结的 fallback contract 为 annotation-side retry，路由时机不是 pre-annotation
+automatic trigger：
 
 ```text
 Stage 1: Primary PyMuPDF Evidence
-Stage 2: Text quality assessment
-Stage 3: Conditional RapidOCR retry for unreadable / insufficient Evidence
-Stage 4: Final Evidence + provenance + review queue
+Stage 2: Gate 2C Annotator
+Stage 3: RapidOCR retry for annotator-marked insufficient_evidence / unreadable Evidence
+Stage 4: Re-annotation + final Evidence + provenance + review queue
 ```
 
 RapidOCR fallback 的冻结参数为：
@@ -268,9 +293,10 @@ RapidOCR fallback 的冻结参数为：
 - 仅对 Evidence 不足或人工复核路由的页面执行，不对所有 Main Sample、Audit Pool 或
   Candidate Source Corpus 做全量 OCR。
 
-当前没有可靠 automatic encoding-risk classifier，因此 trigger 继续采用
-`insufficient_evidence` / manual review 驱动的 conditional retry；只有更大样本证明质量
-信号可稳定区分后，才考虑自动 trigger。
+当前没有可靠 automatic encoding-risk classifier，因此不冻结 `Automatic OCR Trigger v0.1`。
+Quality Signals 只作为 diagnostic data；`insufficient_evidence` / `unreadable` 的
+annotation-side retry 是当前正式 routing contract。只有更大、已人工标注的 calibration set
+证明质量信号可稳定区分后，才考虑重新评估 automatic trigger。
 
 `text_absent` Audit Pool 仍单独处理，不因本次获得 OCR 能力就自动 OCR 全部 60 条。
 
@@ -314,13 +340,17 @@ RapidOCR fallback 的冻结参数为：
 
 ## 14. Gate 2B Status and Next Boundary
 
-本次固定诊断已完成，但仍保持以下边界：
+本次 OCR routing signal calibration 已完成，但仍保持以下边界：
 
 - 不授权 Full Evidence v0.3 Runtime；
 - 不重跑 767 条；
 - 不执行 LLM Taxonomy Annotation；
 - 不执行 Source Selection；
 - 不关闭 Gate 2B。
+
+本次选择的是 Case B：`annotation-side retry routing`。因此下一步必须先取得 Project
+Owner / Gate Decision，确认是否接受 PyMuPDF primary Evidence 加上 Gate 2C
+`insufficient_evidence` / `unreadable` retry contract；在该决策之前不得自动进入 Gate 2C。
 
 下一步只有在单独授权后，才可在同一 767-item Sample 上执行 Evidence v0.3 Implementation
 和 paired Gate 2B Review。Gate threshold 仍为：
@@ -333,5 +363,5 @@ insufficient <= 1 / 20
 当前下一任务：
 
 ```text
-Gate 2B Evidence v0.3 Implementation on the same 767-item Sample
+Gate 2B Routing Contract Gate Decision
 ```

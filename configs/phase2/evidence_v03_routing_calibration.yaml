@@ -1,0 +1,64 @@
+revision: evidence-v03-routing-calibration-v0.1
+reference_run_id: p2b-20260915T023641Z-cbde565
+review_source: reports/phase2/gate2b_calibration_sample_evidence_report.md
+reviewed_items:
+  - relative_path: "duanyajishu/【2024-03】铝合金开闭机构舱门超塑气胀工艺.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "hanjie/【2020-12】Ag和Zn对Sn58Bi钎料润湿性及焊点组织的影响.pdf"
+    sufficiency: insufficient
+    quality_labels: [garbled, needs_more_pages]
+  - relative_path: "hanjiexuebao/【2011-12】基于SYSWELD的穿孔等离子弧焊接温度场有限元分析.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "jinshurechuli/【2024-10】冷轧压下率对IF钢退火热处理织构及成形性的影响.pdf"
+    sufficiency: borderline
+    quality_labels: [readable, garbled, needs_more_pages]
+  - relative_path: "jixiechuandong/【2026-02】基于改进Lazy-PRM算法的双臂巡检机器人避障路径规划.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "jixiegongchengcailiao/【2022-8】淬火冷却速率对Zr-4合金显微组织和耐腐蚀性能的影响.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "jixiegongchengxuebao/【2016-10】基于T-S模糊故障树的多态系统性能可靠性.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "jixiegongchengxuebao2/【2016-6】离子注入碳化硅实现低温下外延合成石墨烯.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "jixieqiangdu/【2020-05】TBM驱动系统在不确定地质下的动力学分析.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "lihuajianyan-huaxuefence/【2015-12】八极杆碰撞反应池-电感耦合等离子体质谱法测定食用香精中多元素.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "lihuajianyan-wulifence/【2018-09】凝结水泵轴断裂原因分析.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "suxinggongchengxuebao/【2026-06】组合本构模型对高强钢CTB电池箱体纵梁辊弯回弹预测精度的影响.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "wusunjiance/【2017-04】基于电磁感应的磁悬液浓度快速测试技术.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "yeyayuqidong/【2018-09】多柱塞阀配流往复式容积泵新型流量调节方法研究.pdf"
+    sufficiency: insufficient
+    quality_labels: [garbled, needs_more_pages]
+  - relative_path: "zhizaojishuyujichuang/【2024-02】工艺参数对30CrMnSiA高强钢铣削力及铣削温度的影响.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "zhizaoyezidonghua/【2024-09】有限缓冲区柔性流水车间调度优化问题求解.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "zhongguohanjie/【2020-01】Deformation analysis of a friction stir-welded thin sheet aluminum alloy joint.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "zhongguojixiegongcheng/【2022-07】脆性材料机械加工表面粗糙度模型的研究进展.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
+  - relative_path: "zhongguozhuzaozhuangbeiyujishu/【2022-5】V法造型密闭式涂料烘干系统的优化设计.pdf"
+    sufficiency: insufficient
+    quality_labels: [garbled, needs_more_pages]
+  - relative_path: "zhuzao/【2023-03】厚大断面球墨铸铁齿轮铸件的研制.pdf"
+    sufficiency: sufficient
+    quality_labels: [readable, potentially_sufficient]
