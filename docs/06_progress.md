@@ -4,9 +4,9 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2B Calibration Sample & Evidence Implementation
+Current Task: Gate 2B Calibration Sample & Evidence Artifact Review
 
-Next Task: Implement deterministic Phase 2 calibration sampling and lightweight evidence extraction, then review Gate 2B artifacts before any taxonomy annotation.
+Next Task: Review Gate 2B Calibration Sample & Evidence artifacts before any taxonomy annotation.
 
 ## Current Status
 
@@ -32,8 +32,10 @@ Next Task: Implement deterministic Phase 2 calibration sampling and lightweight 
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2B Calibration Sample & Evidence Implementation
+- Current Task: Gate 2B Calibration Sample & Evidence Artifact Review
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
+- Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
+- Gate 2B Artifact Review: Pending；当前尚未作出正式 Gate 2B closeout 决定。
 
 ## 当前进展
 
@@ -73,6 +75,8 @@ Next Task: Implement deterministic Phase 2 calibration sampling and lightweight 
 - 项目状态切换至 Phase 2 - Taxonomy Calibration & Source Selection；切换时未执行任何 Phase 2 runtime 工作。
 - 完成 Phase 2 Taxonomy Calibration & Source Selection Design v0.1 评审修订并通过 Gate 2A；文档状态为 `Reviewed - Baseline`，文档见 `docs/11_phase2_taxonomy_calibration_and_source_selection.md`。
 - Gate 2A 之后仍未创建 Calibration Sample，未读取批量 PDF，未调用 LLM，未执行 Taxonomy Annotation、Source Selection、MinerU、OCR 或 Benchmark Item Generation。
+- 完成 Gate 2B Calibration Sample & Evidence Runtime：Full Inventory 完整性校验通过，deterministic sample / Audit Pools / PyMuPDF lightweight Evidence 完成，767 个 unique selected items，self-check verdict: PASS；报告见 reports/phase2/gate2b_calibration_sample_evidence_report.md。
+- Gate 2B Artifact Review 尚未完成；在 review 决定前不执行 Taxonomy Annotation、Source Selection 或 Benchmark Source Registry。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
@@ -106,3 +110,4 @@ Implement deterministic Phase 2 calibration sampling and lightweight evidence ex
 | 2026-09-14 | 项目 Owner 确认 `cmes_journal` / 60454 PDFs 是当前 MIGB 完整 Candidate Source Corpus；`books_*` 不纳入，`all_pipeline` 不是 Candidate Source Corpus；Gate 1: Passed，Phase 1 Closed；项目切换至 Phase 2 Taxonomy Calibration & Source Selection，下一任务为 Phase 2 Taxonomy Calibration Design |
 | 2026-09-15 | 完成 Phase 2 Taxonomy Calibration & Source Selection Design v0.1 初稿；仅完成设计，未创建 Calibration Sample 或执行任何 Phase 2 Pipeline；下一任务为 Phase 2 Taxonomy Calibration Design Review |
 | 2026-09-15 | Phase 2 Design v0.1 完成评审修订并通过 Gate 2A；仅冻结设计，不代表 Phase 2 complete；下一任务为 Gate 2B Calibration Sample & Evidence Implementation |
+| 2026-09-15 | Gate 2B Runtime Self-check 完成并通过：Main Sample 600、Audit Pools 167、Unique selected items 767，Full Inventory / Artifact validation / deterministic recomputation 均通过；下一任务为 Gate 2B Calibration Sample & Evidence Artifact Review |
