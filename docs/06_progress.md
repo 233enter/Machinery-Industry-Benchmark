@@ -6,7 +6,7 @@ Current Milestone: Source Corpus Calibration v0.1
 
 Current Task: Gate 2B Evidence Contract Revision
 
-Next Task: Design Evidence v0.3 visual/OCR fallback for unresolved encoding items before any full Evidence v0.2 runtime.
+Next Task: Decide and provision the minimal Chinese OCR dependency for Evidence v0.3 diagnostic validation.
 
 ## Current Status
 
@@ -38,7 +38,9 @@ Next Task: Design Evidence v0.3 visual/OCR fallback for unresolved encoding item
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
 - Gate 2B Formal Verdict: PASS WITH EVIDENCE REVISION；Evidence Contract v0.1 暂不作为 Gate 2C 的统一输入。
 - Gate 2B Evidence v0.2 Diagnostic Probe: Completed；Problem Set 4、Control Set 4，Probe B/C 均未将问题项提升到 sufficient，8 个 Source PDF size/mtime 均未变化。
-- Evidence v0.2 Design: Conditional Design Freeze；text-only probes 仍无法解决当前乱码样本，需单独设计 Evidence v0.3 visual/OCR fallback。
+- Evidence v0.2 Diagnostic Design: Completed；仅为诊断设计，不授权 Full Gate 2B rerun；`pdftotext` 保持 diagnostic-only。
+- Evidence v0.3 OCR Runtime Capability Check: Completed；Tesseract、`chi_sim`/`eng` 和已检查的 Python OCR modules 均 unavailable。
+- Evidence v0.3 OCR Diagnostic: Blocked；未执行 render/OCR，需先决定并提供最小中文 OCR dependency。
 - Gate 2B Operational Status: HOLD；Gate 2C: NOT AUTHORIZED。
 
 ## 当前进展
@@ -82,12 +84,13 @@ Next Task: Design Evidence v0.3 visual/OCR fallback for unresolved encoding item
 - 完成 Gate 2B Calibration Sample & Evidence Runtime：Full Inventory 完整性校验通过，deterministic sample / Audit Pools / PyMuPDF lightweight Evidence 完成，767 个 unique selected items，self-check verdict: PASS；报告见 reports/phase2/gate2b_calibration_sample_evidence_report.md。
 - 完成 Gate 2B Evidence Sufficiency Review：Main Review Set 20 条，16 sufficient、1 borderline、3 insufficient；发现 4 条明确 garbled 风险，Formal Verdict 为 PASS WITH EVIDENCE REVISION。
 - 完成 8-file Evidence v0.2 Diagnostic Probe：固定复用 4 个 Problem Item，并从原 16 个 sufficient 中确定性选择 4 个 Control；pdftotext 22.02.0 可用，Probe B/C 均未解决问题项。
-- Evidence v0.2 仅完成 conditional design freeze，Gate 2B 仍 HOLD；在 Evidence v0.3 visual/OCR fallback 设计和后续明确授权前不执行 Full Evidence v0.2 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry。
+- Evidence v0.2 仅完成 diagnostic design，Gate 2B 仍 HOLD；`pdftotext` 为 diagnostic-only；在中文 OCR dependency 提供并完成 Evidence v0.3 诊断前不执行 Full Evidence v0.2/v0.3 Runtime、Taxonomy Annotation、Source Selection 或 Benchmark Source Registry。
+- 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 不可用，`paddleocr`、`rapidocr_onnxruntime`、`rapidocr` 均未安装；未执行 200/300 DPI render 或 OCR Probe。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Design Evidence v0.3 visual/OCR fallback for unresolved encoding items before any full Evidence v0.2 runtime.
+Decide and provision the minimal Chinese OCR dependency for Evidence v0.3 diagnostic validation.
 
 ## 变更记录
 
@@ -118,4 +121,5 @@ Design Evidence v0.3 visual/OCR fallback for unresolved encoding items before an
 | 2026-09-15 | Phase 2 Design v0.1 完成评审修订并通过 Gate 2A；仅冻结设计，不代表 Phase 2 complete；下一任务为 Gate 2B Calibration Sample & Evidence Implementation |
 | 2026-09-15 | Gate 2B Runtime Self-check 完成并通过：Main Sample 600、Audit Pools 167、Unique selected items 767，Full Inventory / Artifact validation / deterministic recomputation 均通过；下一任务为 Gate 2B Calibration Sample & Evidence Artifact Review |
 | 2026-09-15 | Gate 2B Evidence Sufficiency Review 完成：20 条 Main Review，16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%；Formal Verdict 为 PASS WITH EVIDENCE REVISION；下一任务为 Gate 2B Evidence Contract Revision |
-| 2026-09-15 | 完成 8-file Evidence v0.2 Diagnostic Probe 和 conditional design freeze：4 Problem + 4 Control；Probe B/C 均未将问题项提升到 sufficient；Gate 2B 保持 HOLD；下一任务为 Evidence v0.3 visual/OCR fallback 设计 |
+| 2026-09-15 | 完成 8-file Evidence v0.2 Diagnostic Probe 和 diagnostic design：4 Problem + 4 Control；Probe B/C 均未将问题项提升到 sufficient；Gate 2B 保持 HOLD；下一任务为 Evidence v0.3 visual/OCR fallback 设计 |
+| 2026-09-15 | 完成 Evidence v0.3 OCR Runtime Capability Check：Tesseract 与已检查的 Python OCR engines 均不可用；未执行 render/OCR；Gate 2B 保持 HOLD；下一任务为决定并提供最小中文 OCR dependency |

@@ -3,7 +3,7 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Evidence v0.2 Design
 Version: 0.2
-Status: Conditional Design Freeze - Gate 2B Re-run Pending
+Status: Diagnostic Design Only - Full Gate 2B Re-run Not Authorized
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
 Current Task: Gate 2B Evidence Contract Revision
 
@@ -166,22 +166,22 @@ page_truncated
 没有把问题项提升到 `sufficient`。因此当前不能把任何 text-only extractor 方案宣称为
 Gate 2C 的通用 Evidence Contract。
 
-Evidence v0.2 的条件性设计冻结为：
+Evidence v0.2 的诊断设计边界为：
 
 1. page selection 使用 first 3 pages 加 deterministic middle/late body probes；
 2. primary extractor 使用 PyMuPDF；
 3. per-page cap 为 4,000，global cap 为 20,000；
 4. quality signal 使用人工 review labels 加轻量 Unicode metrics，暂不冻结生产阈值；
-5. `pdftotext -layout` 只作为针对 quality-risk item 的 conditional fallback / diagnostic
-   extractor，不对全部 767 条默认双重抽取；
+5. `pdftotext -layout` 仅保留为 diagnostic-only extractor，不作为 Evidence v0.2/v0.3 的
+   Production Fallback，也不对全部 767 条默认双重抽取；
 6. fallback 仍不可读的 Item 必须进入 unresolved review queue，不得自动标为 sufficient；
 7. 视觉/OCR 处理单独进入 Evidence v0.3 设计，不在本次 v0.2 或当前 Probe 中执行。
 
 因此：
 
 ```text
-Evidence v0.2 Contract: Conditional Design Freeze
-Evidence v0.2: Not accepted as a universal Gate 2C input
+Evidence v0.2: Diagnostic design only; not accepted for Full Gate 2B rerun
+pdftotext: diagnostic-only
 Gate 2B operational status: HOLD
 Gate 2C: NOT AUTHORIZED
 ```
@@ -237,8 +237,10 @@ Primary extractor：
 
 ## 11. Fallback Contract
 
-Fallback extractor 为 `/usr/bin/pdftotext -layout`，但只允许在 quality-risk routing 中按
-同一 selected page set 执行。Fallback Record 至少记录：
+本节只记录已完成的诊断对比，不冻结 Production Fallback。`pdftotext -layout` 的当前
+状态为 `diagnostic-only`；它只能在后续单独授权的诊断中按同一 selected page set 执行，
+不能作为 Evidence v0.2/v0.3 的生产 fallback。未来若采用其他 fallback，Fallback Record
+至少记录：
 
 - `fallback_reason`；
 - `fallback_extractor`；
@@ -247,9 +249,9 @@ Fallback extractor 为 `/usr/bin/pdftotext -layout`，但只允许在 quality-ri
 - fallback 的 page-level raw/stored counts；
 - fallback 后的 quality signals 和 manual review result。
 
-当前 Probe 表明 fallback 对 P1–P4 没有形成足够改善，因此：
+当前 Probe 表明 `pdftotext` 对 P1–P4 没有形成足够改善，因此：
 
-- 不把 `pdftotext` 结果自动视为优先结果；
+- 不把 `pdftotext` 结果自动视为优先结果或 Production Evidence；
 - 不因 printable ratio 上升而自动清除 `garbled`；
 - 不对所有 767 items 进行双重抽取；
 - 不将失败项绕过 review queue 送入 Gate 2C。
@@ -299,7 +301,7 @@ provenance 字段和 `evidence_page_indices` 的基础上增加：
 | `evidence_global_char_cap` | 记录 20000 |
 | `evidence_page_records` | 记录 page index、raw/stored chars 和 page truncation |
 | `evidence_primary_extractor` | 记录 `pymupdf` |
-| `evidence_fallback_extractor` | 记录 `pdftotext-layout` 或未使用 |
+| `evidence_fallback_extractor` | 记录未来批准的 fallback；`pdftotext-layout` 在当前设计中为 diagnostic-only |
 | `evidence_extractor_used` | 记录 primary / fallback / unresolved |
 | `evidence_quality_signals` | 保存上述 Unicode metrics |
 | `evidence_quality_labels` | 保存允许的 quality labels |
@@ -317,7 +319,7 @@ provenance 字段和 `evidence_page_indices` 的基础上增加：
 2. 复用同一 767 个 `calibration_item_id`、`file_instance_id` 和 pool membership；
 3. 不重新抽样，不覆盖 v0.1 Run，使用新的 run directory 和 manifest；
 4. 运行前后验证 Source PDF size/mtime 不变；
-5. 对 quality-risk item 按批准后的 routing contract 决定是否调用 fallback；
+5. 待 Evidence v0.3 visual/OCR contract 批准后，对 quality-risk item 决定是否调用 fallback；
 6. 使用与本次完全相同的 20 个 Main Review Item 进行 paired Gate 2B Evidence Review；
 7. 同时报告 Main、Short、Truncated、Encoding/Garbled、Mixed Text 和
    Filename-unmatched Review；
@@ -353,14 +355,15 @@ Evidence v0.2 后续只有在以下条件同时满足时，才可作为 Gate 2C 
 
 ## 17. Current Decision and Stop Boundary
 
-本次已完成 8-file deterministic diagnostic probe 和 Evidence v0.2 条件性设计冻结。
+本次已完成 8-file deterministic diagnostic probe 和 Evidence v0.2 诊断设计。
 结果支持“文本覆盖增加和 Poppler fallback 均不足以解决当前乱码样本”的结论，但不构成
 Gate 2B 通过、Domain Taxonomy 冻结或 Gate 2C 授权。
 
 当前停止在：
 
 ```text
-Evidence v0.2 conditional design freeze
+Evidence v0.2 diagnostic design only
+Full Gate 2B rerun not authorized
 Gate 2B HOLD
 No full 767-item rerun
 No OCR / MinerU
