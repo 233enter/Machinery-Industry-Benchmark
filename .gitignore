@@ -6,3 +6,6 @@ __pycache__/
 .coverage
 htmlcov/
 *.egg-info/
+
+# Local-only Provider credentials; never commit this file.
+configs/phase2/gate2c_provider.local.env

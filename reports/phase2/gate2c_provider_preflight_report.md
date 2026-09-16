@@ -25,6 +25,7 @@ Stage: `gate2c-b-provider-preflight`
 | Schema revision | `taxonomy-annotation-schema-v0.1` |
 | Taxonomy revision | `taxonomy-v0.1` |
 | Synthetic input | `Synthetic Spur Gear Wear Study` only |
+| Provider env file | `configs/phase2/gate2c_provider.local.env` (Git-ignored, owner-only) |
 | Benchmark dry-run authorization | `false` |
 
 ## 2. Frozen Annotators
@@ -101,7 +102,7 @@ model alias, change the frozen model IDs, or run the 20-item dry-run directly.
 
 | Check | Result |
 | --- | --- |
-| Mock/unit tests | `85 passed` |
+| Mock/unit tests | `87 passed` |
 | 20-item dry-run | Not run |
 | 600-item annotation | Not run |
 | OCR / Source Selection | Not run |

@@ -16,6 +16,7 @@ from migb.phase2.annotation.preflight import (
     RelayHTTPResponse,
     credentials_are_distinct,
     discover_models,
+    load_provider_environment,
     require_distinct_credentials,
     run_dual_provider_preflight,
     run_provider_preflight,
@@ -307,3 +308,35 @@ def test_credential_isolation_helper_is_fail_closed() -> None:
     assert credentials_are_distinct("A", "B", {"A": "one"}) is None
     with pytest.raises(CredentialIsolationError):
         require_distinct_credentials("A", "B", {"A": "one", "B": "one"})
+
+
+def test_local_provider_environment_file_loads_four_variables_safely(tmp_path: Path) -> None:
+    path = tmp_path / "provider.env"
+    path.write_text(
+        "GROK_API_KEY='file-grok'\n"
+        "GROK_BASE_URL=http://relay.example/v1\n"
+        "GLM_API_KEY=file-glm\n"
+        "GLM_BASE_URL=http://relay.example/v1\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o600)
+
+    merged = load_provider_environment(
+        path,
+        environ={"GROK_API_KEY": "process-grok", "OTHER": "retained"},
+    )
+
+    assert merged["GROK_API_KEY"] == "process-grok"
+    assert merged["GLM_API_KEY"] == "file-glm"
+    assert merged["GROK_BASE_URL"] == BASE_URL
+    assert merged["GLM_BASE_URL"] == BASE_URL
+    assert merged["OTHER"] == "retained"
+
+
+def test_local_provider_environment_file_rejects_insecure_permissions(tmp_path: Path) -> None:
+    path = tmp_path / "provider.env"
+    path.write_text("GROK_API_KEY=value\n", encoding="utf-8")
+    path.chmod(0o644)
+
+    with pytest.raises(ValueError, match="owner"):
+        load_provider_environment(path, environ={})

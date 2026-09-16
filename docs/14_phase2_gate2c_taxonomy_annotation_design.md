@@ -289,6 +289,11 @@ check 并写入 Run manifest。首选 endpoint 为 `/chat/completions`，model d
 call。`max_output_tokens=2048`、`max_transport_retries=3`、`max_format_retries=1` 已
 记录在配置中。
 
+为便于本地或远程执行，预检脚本默认读取仓库内被 Git 忽略的
+`configs/phase2/gate2c_provider.local.env`；也可以通过 `MIGB_PROVIDER_ENV_FILE` 或
+`--provider-env-file` 指定仓库外文件。该文件必须仅限 owner 读取（权限 `600`），进程
+环境变量优先于文件内容。该文件不得提交，Key 也不得复制到任何 tracked 文件。
+
 API Key 只能从环境变量读取；真实值不得写入 YAML、JSON、源代码、manifest、report 或
 Git。生产式 Benchmark Annotation 仍必须保持关闭；本次 Provider preflight 只使用固定
 synthetic Evidence。Relay 当前为明文 HTTP：

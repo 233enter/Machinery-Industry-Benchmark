@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
+import stat
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest
@@ -46,6 +49,89 @@ SYNTHETIC_EVIDENCE = (
     "This synthetic document studies spur gear tooth contact, gear transmission design, "
     "surface wear and service life."
 )
+
+PROVIDER_ENV_VARS = frozenset(
+    {
+        "GROK_API_KEY",
+        "GROK_BASE_URL",
+        "GLM_API_KEY",
+        "GLM_BASE_URL",
+    }
+)
+
+
+class ProviderEnvironmentFileError(ValueError):
+    """Raised when the local Provider environment file is unsafe or malformed."""
+
+
+def load_provider_environment(
+    path: str | Path | None,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Load local-only Provider variables, with explicit process env precedence.
+
+    The file is intentionally limited to the four Gate 2C variables and must
+    not be group/world readable.  Values remain in process memory only.
+    """
+
+    merged = dict(os.environ if environ is None else environ)
+    if path is None:
+        return merged
+    env_path = Path(path)
+    if not env_path.exists():
+        return merged
+    if not env_path.is_file():
+        raise ProviderEnvironmentFileError(
+            f"Provider environment path is not a regular file: {env_path}"
+        )
+    mode = stat.S_IMODE(env_path.stat().st_mode)
+    if mode & 0o077:
+        raise ProviderEnvironmentFileError(
+            "Provider environment file must be readable only by its owner"
+        )
+
+    file_values: dict[str, str] = {}
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise ProviderEnvironmentFileError(
+            f"cannot read Provider environment file: {env_path}"
+        ) from exc
+    for line_number, raw_line in enumerate(lines, start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        if "=" not in line:
+            raise ProviderEnvironmentFileError(
+                f"invalid Provider environment assignment at line {line_number}"
+            )
+        name, raw_value = line.split("=", 1)
+        name = name.strip()
+        if name not in PROVIDER_ENV_VARS:
+            raise ProviderEnvironmentFileError(
+                f"unsupported Provider environment variable at line {line_number}"
+            )
+        value = raw_value.strip()
+        if value:
+            try:
+                parsed = shlex.split(value, comments=False, posix=True)
+            except ValueError as exc:
+                raise ProviderEnvironmentFileError(
+                    f"invalid Provider environment value at line {line_number}"
+                ) from exc
+            if len(parsed) != 1:
+                raise ProviderEnvironmentFileError(
+                    f"Provider environment value must be one shell word at line {line_number}"
+                )
+            value = parsed[0]
+        file_values[name] = value
+
+    # Explicit process environment values take precedence over the local file.
+    for name, value in file_values.items():
+        merged.setdefault(name, value)
+    return merged
 
 
 def _utc_now() -> str:

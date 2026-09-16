@@ -51,6 +51,7 @@ Next Task: 在执行环境注入 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY
 - Gate 2C-A Design Freeze: Completed / PASSED；Annotator A=`grok_relay/grok-4.6`，Annotator B=`glm_relay/glm-5.3`，configuration revision=`gate2c-annotator-config-v0.2`；Prompt、Schema、Taxonomy revision 保持不变。
 - Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；当前执行环境未提供 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY`、`GLM_BASE_URL`，未调用 `/models` 或 synthetic request，未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
+- Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
 ## 当前进展
 
@@ -145,3 +146,4 @@ Provide the four Provider environment variables without exposing their values, r
 | 2026-09-15 | Gate 2C-B Provider Preflight 被阻塞：远程环境未提供 `OPENAI_API_KEY`、`GLM_API_KEY`、`GLM_BASE_URL`；未调用 synthetic request，未执行 20-item dry-run；下一任务为补齐凭据后重新执行 Provider capability preflight |
 | 2026-09-16 | 根据 Project Owner 决定更新 Gate 2C Annotator：A=`grok_relay/grok-4.6`、B=`glm_relay/glm-5.3`，使用不同 Key 和同一 OpenAI-compatible Relay；configuration revision=`gate2c-annotator-config-v0.2`，Prompt/Schema/Taxonomy revision 不变 |
 | 2026-09-16 | Gate 2C-B Provider Preflight 仍为 BLOCKED BY PROVIDER PREFLIGHT：当前执行环境未提供新 Provider 环境变量；未调用 `/models` 或 synthetic request，未执行 20-item dry-run；下一任务为补齐环境变量后重新执行 capability preflight |
+| 2026-09-16 | 增加本地 Provider 环境文件加载入口和模板；真实 Key 保持 Git-ignored、owner-only，预检脚本可自动读取；Unit Tests 更新为 87 passed |
