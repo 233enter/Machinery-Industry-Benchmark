@@ -48,7 +48,7 @@ preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dr
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
 - Gate 2C-A Design Freeze: Completed / PASSED；Annotator A=`grok_relay/grok-4.6`，Annotator B=`glm_relay/glm-5.3`，configuration revision=`gate2c-annotator-config-v0.2`；Prompt、Schema、Taxonomy revision 保持不变。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；两把 Key 均存在且不同，Grok/GLM `/models` 均发现精确 model ID；GLM synthetic 通过，Grok synthetic `json_schema` 返回 HTTP 400，未执行 20-item dry-run。
+- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；更新 Key 后重新执行仍确认两把 Key 均存在，Grok/GLM `/models` 均发现精确 model ID；GLM synthetic 通过，Grok synthetic `json_schema` 仍返回 HTTP 400，未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 - Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
@@ -147,3 +147,4 @@ Resolve the Grok Relay synthetic preflight HTTP 400 without changing the frozen 
 | 2026-09-16 | Gate 2C-B Provider Preflight 仍为 BLOCKED BY PROVIDER PREFLIGHT：当前执行环境未提供新 Provider 环境变量；未调用 `/models` 或 synthetic request，未执行 20-item dry-run；下一任务为补齐环境变量后重新执行 capability preflight |
 | 2026-09-16 | Provider 配置已加载并完成实际 Preflight：两把 Key 均存在且不同，Grok/GLM 精确 model ID 均可用；GLM `json_schema` synthetic 通过，Grok `json_schema` 返回 HTTP 400；Gate 2C-B 仍 BLOCKED，未执行 20-item dry-run |
 | 2026-09-16 | 增加本地 Provider 环境文件加载入口和模板；真实 Key 保持 Git-ignored、owner-only，预检脚本可自动读取；Unit Tests 更新为 87 passed |
+| 2026-09-16 | 根据 Project Owner 更新 Key 后重新执行 Provider Preflight：两把 Key 均存在，Grok/GLM 精确 model ID 均可用；GLM synthetic 通过，Grok `json_schema` 仍返回 HTTP 400；Gate 2C-B 继续 BLOCKED，未执行 20-item dry-run |

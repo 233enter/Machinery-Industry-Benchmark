@@ -130,3 +130,40 @@ Technical Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
 
 Security Risk: API credentials and annotation payloads are not protected by TLS at the configured
 relay endpoint. 本次 technical preflight 不因该风险自动阻塞；但 20-item Dry-run 仍未授权。
+
+## 8. Provider Preflight Retry
+
+本节记录在 Project Owner 更新本地 Provider Key 后，于 2026-09-16 重新执行的
+Provider Preflight。配置、Prompt、Schema 和 Taxonomy revision 未改变。
+
+No credential values, prefixes, suffixes, lengths, or Authorization headers were printed,
+logged, persisted, or committed.
+
+| Check | Annotator A / Grok | Annotator B / GLM |
+| --- | --- | --- |
+| Provider | `grok_relay` | `glm_relay` |
+| Requested model | `grok-4.6` | `glm-5.3` |
+| API Key presence | `GROK_API_KEY present=true` | `GLM_API_KEY present=true` |
+| `/models` availability | HTTP 200; exact requested model found | HTTP 200; exact requested model found |
+| Structured-output mode | Unresolved; `json_schema` returned HTTP 400 | `json_schema` |
+| HTTP status | 400 | 200 |
+| Resolved model | `null` | `glm-5.3` |
+| Schema validation | `false` | `true` |
+| Request ID | `7972d606-68d3-4149-ac24-8ee95001e014` | `2026091611510607a92d5620104c5f` |
+| Input / output / reasoning tokens | `null / null / null` | `2296 / 1301 / 1117` |
+| Latency | `465 ms` | `35760 ms` |
+| Provider result | Failed synthetic preflight | Passed synthetic preflight |
+
+Grok 的 HTTP 400 仍未被当前 explicit unsupported-format classifier 确认为可回退错误，
+因此没有尝试 `json_object` 或 `prompt_json_only`；没有进行 alias 替换。GLM 返回的
+`model` 与 requested model 完全一致。没有确认 silent model substitution。
+
+```text
+transport_security = plaintext_http
+Technical Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
+20-item Benchmark Dry-run: NO / NOT AUTHORIZED
+```
+
+本次重试确认 Key presence 和目标模型可用性，但未满足“两路 synthetic annotation 均成功
+且 canonical schema validation 均通过”的 Provider Preflight PASS 条件。按 Gate 2C-B
+协议停止，等待 Grok Relay HTTP 400 的进一步处理。
