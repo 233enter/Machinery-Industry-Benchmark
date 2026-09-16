@@ -1,17 +1,35 @@
-"""Offline Gate 2C annotation contracts and provider boundaries.
+"""Gate 2C annotation contracts and explicit provider boundaries.
 
-This package deliberately contains no remote inference client.  Adapters build
-provider-shaped requests and parse supplied mock responses; a later execution
-layer must explicitly own any network authorization.
+Adapters build provider-shaped requests and parse supplied mock responses.
+The separate preflight module owns the narrowly scoped, explicitly authorized
+model-discovery and synthetic capability checks; production annotation remains
+outside this package boundary.
 """
 
 from .agreement import AgreementDecision, classify_annotation_pair, same_final_evidence
 from .adapters import (
     AnnotationAdapter,
-    GLMAnnotationAdapter,
+    GLMRelayAnnotationAdapter,
+    GrokRelayAnnotationAdapter,
     MissingCredentialsError,
-    OpenAIAnnotationAdapter,
+    OpenAICompatibleAnnotationAdapter,
     RemoteInferenceDisabledError,
+    STRUCTURED_OUTPUT_MODES,
+)
+from .preflight import (
+    CredentialIsolationError,
+    DualProviderPreflightResult,
+    ModelDiscoveryResult,
+    ProviderPreflightResult,
+    RelayHTTPResponse,
+    SyntheticPreflightAttempt,
+    credentials_are_distinct,
+    discover_models,
+    require_distinct_credentials,
+    run_dual_provider_preflight,
+    run_provider_preflight,
+    synthetic_annotation_request,
+    synthetic_preflight_attempt,
 )
 from .retry import RetryDecision, decide_item_retry, mark_first_pass_superseded
 from .prompt import PROMPT_REVISION, prompt_hash, prompt_template_hash, render_annotation_prompt
@@ -37,10 +55,18 @@ __all__ = [
     "AnnotationRequest",
     "AnnotationResponse",
     "AnnotationSchemaError",
-    "GLMAnnotationAdapter",
+    "GLMRelayAnnotationAdapter",
+    "GrokRelayAnnotationAdapter",
     "MissingCredentialsError",
-    "OpenAIAnnotationAdapter",
+    "OpenAICompatibleAnnotationAdapter",
     "RemoteInferenceDisabledError",
+    "STRUCTURED_OUTPUT_MODES",
+    "CredentialIsolationError",
+    "DualProviderPreflightResult",
+    "ModelDiscoveryResult",
+    "ProviderPreflightResult",
+    "RelayHTTPResponse",
+    "SyntheticPreflightAttempt",
     "RetryDecision",
     "TaxonomySnapshot",
     "TaxonomySnapshotError",
@@ -54,6 +80,13 @@ __all__ = [
     "prompt_template_hash",
     "render_annotation_prompt",
     "same_final_evidence",
+    "credentials_are_distinct",
+    "discover_models",
+    "require_distinct_credentials",
+    "run_dual_provider_preflight",
+    "run_provider_preflight",
+    "synthetic_annotation_request",
+    "synthetic_preflight_attempt",
     "taxonomy_payload_hash",
     "validate_model_output",
 ]

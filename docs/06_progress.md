@@ -6,7 +6,9 @@ Current Milestone: Source Corpus Calibration v0.1
 
 Current Task: Gate 2C-B Provider Preflight Blocked
 
-Next Task: 在远程环境补齐 Provider 凭据和 GLM endpoint 后重新执行 capability preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dry-run。
+Next Task: 在执行环境注入 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY`、
+`GLM_BASE_URL` 后重新执行 capability preflight；不得更换冻结模型，也不得绕过 preflight
+直接执行 dry-run。
 
 ## Current Status
 
@@ -46,8 +48,9 @@ Next Task: 在远程环境补齐 Provider 凭据和 GLM endpoint 后重新执行
 - Evidence Contract: `evidence-v0.3-adaptive-v0.1`。
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
-- Gate 2C-A Design Freeze: Completed；等待 Review。Gate 2C-B 20-item dry-run 尚未授权。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；远程 `OPENAI_API_KEY`、`GLM_API_KEY`、`GLM_BASE_URL` 均未提供，未调用 synthetic request，未执行 20-item dry-run。
+- Gate 2C-A Design Freeze: Completed / PASSED；Annotator A=`grok_relay/grok-4.6`，Annotator B=`glm_relay/glm-5.3`，configuration revision=`gate2c-annotator-config-v0.2`；Prompt、Schema、Taxonomy revision 保持不变。
+- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；当前执行环境未提供 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY`、`GLM_BASE_URL`，未调用 `/models` 或 synthetic request，未执行 20-item dry-run。
+- Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 
 ## 当前进展
 
@@ -95,13 +98,13 @@ Next Task: 在远程环境补齐 Provider 凭据和 GLM endpoint 后重新执行
 - 完成 Evidence v0.3 OCR Diagnostic：固定复用 P1–P4/C1–C4，P1/P2 完成 200/300 DPI 对照，最终 200 DPI 下 Problem 4/4、Control 4/4 sufficient；Evidence v0.3 fallback strategy 冻结。
 - 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；Owner 接受 annotation-side retry、拒绝 automatic pre-annotation OCR trigger。
 - 完成 Gate 2B Adaptive Evidence Closeout：Gate 2B Final Verdict 为 `PASSED`；Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 为 `CANCELLED / NOT REQUIRED`；Gate 2B canonical Runtime 保持 immutable。
-- 完成 Gate 2C-A Design Freeze：冻结 annotator 配置、prompt、schema、provider adapter、retry semantics、Artifact 设计和 20-item dry-run protocol；当前不调用 LLM、不执行 20-item 或 600-item Annotation。
-- Gate 2C-B Provider Preflight 被阻塞：远程环境缺少 `OPENAI_API_KEY`、`GLM_API_KEY`、`GLM_BASE_URL`；未发起任何 Provider 请求，未创建 Runtime Annotation Artifact。
+- 完成 Gate 2C-A Design Freeze：冻结 annotator 配置、prompt、schema、provider adapter、retry semantics、Artifact 设计和 20-item dry-run protocol；当前不执行真实 Benchmark Item Annotation。
+- Gate 2C-B Provider Preflight 被阻塞：当前执行环境未提供新的 Provider 环境变量；未发起 `/models` 或 synthetic 请求，未创建 Runtime Annotation Artifact。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Provide the remote Provider credentials and GLM endpoint without exposing their values, rerun the Provider capability preflight, and only then consider the 20-item dual-annotator dry-run.
+Provide the four Provider environment variables without exposing their values, rerun the Provider capability preflight, and only then consider the 20-item dual-annotator dry-run.
 
 ## 变更记录
 
@@ -140,3 +143,5 @@ Provide the remote Provider credentials and GLM endpoint without exposing their 
 | 2026-09-15 | 建立 `docs/14_phase2_gate2c_taxonomy_annotation_design.md`：仅冻结 Gate 2C-A/B/C/D 执行骨架、A/B same-final-Evidence、retry semantics 和 20-item dry-run protocol；未调用 LLM，未执行 600-item Annotation；下一任务为 Gate 2C annotator configuration、prompt contract、annotation artifacts 和 dry-run protocol 评审冻结 |
 | 2026-09-15 | 完成 Gate 2C-A Design Freeze：确定 Annotator A=`openai/gpt-5.6-sol`、Annotator B=`glm/glm-5.2`，建立 Taxonomy/Prompt/Schema snapshot、offline provider adapter、Retry/Agreement/Artifact contract 和 unit tests；未调用 LLM，等待 20-item dual-annotator dry-run 授权 |
 | 2026-09-15 | Gate 2C-B Provider Preflight 被阻塞：远程环境未提供 `OPENAI_API_KEY`、`GLM_API_KEY`、`GLM_BASE_URL`；未调用 synthetic request，未执行 20-item dry-run；下一任务为补齐凭据后重新执行 Provider capability preflight |
+| 2026-09-16 | 根据 Project Owner 决定更新 Gate 2C Annotator：A=`grok_relay/grok-4.6`、B=`glm_relay/glm-5.3`，使用不同 Key 和同一 OpenAI-compatible Relay；configuration revision=`gate2c-annotator-config-v0.2`，Prompt/Schema/Taxonomy revision 不变 |
+| 2026-09-16 | Gate 2C-B Provider Preflight 仍为 BLOCKED BY PROVIDER PREFLIGHT：当前执行环境未提供新 Provider 环境变量；未调用 `/models` 或 synthetic request，未执行 20-item dry-run；下一任务为补齐环境变量后重新执行 capability preflight |

@@ -3,9 +3,9 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Gate 2C Taxonomy Annotation Execution Design
 Version: 0.1
-Status: Reviewed - Awaiting Dry-run Authorization
+Status: Reviewed - Provider Preflight Blocked
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C 20-item Annotation Dry-run Review
+Current Task: Gate 2C-B Provider Preflight
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档目的与边界
@@ -15,8 +15,9 @@ pre-annotation OCR trigger。本文件冻结 Gate 2C-A 的执行设计，以及 
 Annotator model/provider 候选、Annotation Artifact、Evidence retry semantics 和 20-item
 dry-run 协议。
 
-本文件不调用 LLM，不执行 20-item 或 600-item Annotation，不执行 Source Selection，也不
-生成 Benchmark、Ground Truth 或新的 767-item OCR Runtime。
+本文件不执行 20-item 或 600-item Annotation，不执行 Source Selection，也不生成
+Benchmark、Ground Truth 或新的 767-item OCR Runtime。Provider capability preflight 只允许
+按本文件的 synthetic contract 发起最小探测请求，不得发送真实 Benchmark Item。
 Taxonomy 的具体内容仍以现有 Taxonomy Design 和后续正式决策为准，本文件不重新设计
 Domain Taxonomy。
 
@@ -52,13 +53,13 @@ Gate 2C 属于 Phase 2 内部执行分层，不改变项目 Phase 定义：
 
 | Sub-gate | 名称 | 本阶段目的 | 当前状态 |
 | --- | --- | --- | --- |
-| Gate 2C-A | Annotation Execution Design Freeze | 冻结 Annotator 配置、prompt、Schema、retry、Artifact 和处理逻辑 | Design frozen；等待 Review |
-| Gate 2C-B | 20-item Annotation Dry-run | 验证 A/B 独立标注、Evidence retry、重跑和 Artifact 写入 | 等待授权 |
+| Gate 2C-A | Annotation Execution Design Freeze | 冻结 Annotator 配置、prompt、Schema、retry、Artifact 和处理逻辑 | PASSED |
+| Gate 2C-B | 20-item Annotation Dry-run | 验证 A/B 独立标注、Evidence retry、重跑和 Artifact 写入 | Provider preflight blocked |
 | Gate 2C-C | Full 600-item Taxonomy Calibration | 在 dry-run 通过后执行完整 Main Sample 双 Annotator Calibration | 未授权 |
 | Gate 2C-D | Calibration Review + Taxonomy Decision + Source Selection Policy Freeze | 汇总 agreement/conflict、人工复核和 Source Selection Policy 决策 | 未授权 |
 
-在 Gate 2C-A Review 和 Gate 2C-B 授权前，不执行任何 20-item dry-run 或完整 600-item
-双 Annotator Annotation。
+在 Gate 2C-B 获得单独授权前，不执行任何 20-item dry-run 或完整 600-item 双 Annotator
+Annotation。
 
 ## 4. Evidence v0.3 Adaptive Workflow
 
@@ -258,24 +259,47 @@ cost / accounting
 ```
 
 Actual Model A / Model B 的首轮候选已在本次 Gate 2C-A 中冻结；Provider capability check
-尚未完成的具体 inference parameters 仍保持 `TBD`。Gate 2C-A 评审完成前不调用任何模型。
+尚未完成的具体 inference parameters 仍保持 `TBD`。本次只允许执行独立的 Provider
+capability preflight，不允许进入 20-item 或 600-item Annotation。
 
 ### 8.1 Frozen Annotator Configuration
 
-Gate 2C-B 的首轮候选配置冻结为：
+Gate 2C-B 的首轮候选配置冻结为（configuration revision：
+`gate2c-annotator-config-v0.2`）：
 
 | Annotator | Provider | Model | Low-variance setting | Credential environment variable |
 | --- | --- | --- | --- | --- |
-| A (`annotator_a`) | `openai` | `gpt-5.6-sol` | `reasoning_effort=low` | `OPENAI_API_KEY` |
-| B (`annotator_b`) | `glm` | `glm-5.2` | provider capability check required；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
+| A (`annotator_a`) | `grok_relay` | `grok-4.6` | capability negotiation；具体参数 `TBD` | `GROK_API_KEY`；endpoint `GROK_BASE_URL` |
+| B (`annotator_b`) | `glm_relay` | `glm-5.3` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
 
-配置文件为 `configs/phase2/gate2c_annotation_v0.1.yaml`。不设置或硬编码
+配置文件为 `configs/phase2/gate2c_annotation_v0.1.yaml`。两个 Annotator 使用同一
+OpenAI-compatible Relay base URL，但必须使用不同的 API Key；Provider identity 仍分别
+记录为 `grok_relay` 和 `glm_relay`。当前 Owner 提供的 endpoint 为：
+
+```text
+GROK_BASE_URL=http://139.196.137.155/v1
+GLM_BASE_URL=http://139.196.137.155/v1
+```
+
+运行时只从环境变量读取 URL 和 Key，不把 Key 写入配置或 Artifact。不设置或硬编码
 `temperature`、`top_p`；Provider 支持的低随机性参数必须在 dry-run 前通过 capability
-check 并写入 Run manifest。`max_output_tokens=2048`、`max_transport_retries=3`、
-`max_format_retries=1` 已记录在配置中。
+check 并写入 Run manifest。首选 endpoint 为 `/chat/completions`，model discovery 使用
+`/models`。`structured_output_mode` 不预先假定，而是按
+`json_schema → json_object → prompt_json_only` 顺序协商；每种模式最多一次 synthetic
+call。`max_output_tokens=2048`、`max_transport_retries=3`、`max_format_retries=1` 已
+记录在配置中。
 
 API Key 只能从环境变量读取；真实值不得写入 YAML、JSON、源代码、manifest、report 或
-Git。当前配置明确关闭 network、external tools 和 RAG；本轮不发起远程请求。
+Git。生产式 Benchmark Annotation 仍必须保持关闭；本次 Provider preflight 只使用固定
+synthetic Evidence。Relay 当前为明文 HTTP：
+
+```text
+transport_security = plaintext_http
+```
+
+Security Risk: API credentials and annotation payloads are not protected by TLS at the
+configured relay endpoint. 该风险不自动阻塞 technical preflight；但在进入 20-item
+Benchmark Dry-run 前，需要 Project Owner 明确接受该风险，或切换到 HTTPS endpoint。
 
 ### 8.2 Taxonomy Snapshot
 
@@ -341,9 +365,36 @@ src/migb/phase2/annotation/retry.py
 src/migb/phase2/annotation/artifacts.py
 ```
 
-实现包含 `OpenAIAnnotationAdapter` 和 `GLMAnnotationAdapter`。Adapter 只构造 provider-
-shaped request、解析提供的 mock response 和返回统一 canonical schema；`infer()` 在
-Gate 2C-A 明确抛出 disabled error，不导入 Provider SDK，也不发送请求。
+Adapter 只构造 provider-shaped request、解析提供的 mock response 和返回统一 canonical
+schema。当前使用
+`OpenAICompatibleAnnotationAdapter` 及其 `GrokRelayAnnotationAdapter`、
+`GLMRelayAnnotationAdapter` 子类；Provider identity 不得退化为 `openai`。`infer()` 仍
+保持 disabled，只有独立的 preflight requester 可以发起 `/models` 和 synthetic
+`/chat/completions` 请求。
+
+### 8.5 Provider Capability Preflight
+
+Provider preflight 必须分别使用 A/B 的 Key 调用各自 endpoint 的 `/models`，并以精确
+requested model ID 判断可访问性：`grok-4.6` 与 `glm-5.3` 不接受 alias 自动替换。每个
+结果至少保留 `provider_id`、`base_url`、`transport_security`、`requested_model`、
+`available_models_relevant`、HTTP status 和 error type；不保留完整 Authorization header。
+
+只有在 `/models` 中发现精确 model ID 后，才对该 Annotator 发起一次固定 synthetic
+request。Synthetic 输入为：
+
+```text
+Title: Synthetic Spur Gear Wear Study
+Evidence: This synthetic document studies spur gear tooth contact, gear transmission design,
+surface wear and service life.
+```
+
+Synthetic request 必须复用正式 Taxonomy snapshot、Prompt revision 和 Annotation Schema。
+每个 Annotator 按 `json_schema`、`json_object`、`prompt_json_only` 顺序最多各尝试一次；
+每次都由本地 canonical Schema validator 校验。若响应提供 `model`，必须与 requested
+model 完全一致；若未提供则记录 `resolved_model=null`，不得自行填充。只有以下条件同时
+满足时 Provider Preflight 才能 PASS：两把 Key 均存在且不同、两个精确 model ID 均可访问、
+两次 synthetic inference 成功、最终 structured output mode 已确定、canonical Schema
+validation 通过，且没有 silent model substitution。
 
 ## 9. Gate 2C-B 20-item Dry-run Protocol
 
@@ -506,13 +557,16 @@ Owner Review 和 Parent Group × Domain 分析后，才进入 Gate 2C-D，决定
 ```text
 Gate 2B: PASSED
 Evidence Contract: evidence-v0.3-adaptive-v0.1
-Gate 2C-A: DESIGN FROZEN; AWAITING REVIEW
-Gate 2C-B: DRY-RUN AWAITING AUTHORIZATION
+Gate 2C-A: PASSED
+Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
+Gate 2C-B 20-item Dry-run: NOT AUTHORIZED
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
-LLM calls: NOT EXECUTED
+Benchmark Item LLM calls: NOT EXECUTED
 ```
 
-下一步必须先完成 Gate 2C-A Review，并由 Project Owner 单独授权 Gate 2C-B：
+下一步必须先补齐两组 Provider 环境变量并重新执行 capability preflight。只有 technical
+preflight 通过，且 Project Owner 接受明文 HTTP 风险或切换到 HTTPS endpoint 后，才可另行
+授权 Gate 2C-B：
 
 ```text
 Gate 2C annotator configuration,
@@ -521,4 +575,4 @@ annotation artifacts,
 and 20-item dry-run protocol
 ```
 
-在上述内容完成 Review 且 Gate 2C-B 获得授权前，不调用任何 LLM。
+在上述条件满足且 Gate 2C-B 获得授权前，不发送任何真实 Benchmark Item。

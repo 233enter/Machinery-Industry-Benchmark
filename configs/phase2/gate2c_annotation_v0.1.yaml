@@ -1,4 +1,4 @@
-annotation_revision: taxonomy-annotation-v0.1
+annotation_revision: gate2c-annotator-config-v0.2
 prompt_revision: taxonomy-annotation-prompt-v0.1
 schema_revision: taxonomy-annotation-schema-v0.1
 taxonomy_revision: taxonomy-v0.1
@@ -10,8 +10,15 @@ prompt_hash_scope: exact rendered item prompt; recorded per annotation attempt
 
 execution:
   network_enabled: false
+  provider_preflight_network_enabled: true
   external_tools_enabled: false
   rag_enabled: false
+  preflight_endpoint: /chat/completions
+  model_discovery_endpoint: /models
+  structured_output_capability_order:
+    - json_schema
+    - json_object
+    - prompt_json_only
   max_output_tokens: 2048
   max_transport_retries: 3
   max_format_retries: 1
@@ -20,20 +27,22 @@ execution:
 annotators:
   a:
     annotator_id: annotator_a
-    provider: openai
-    model: gpt-5.6-sol
-    reasoning_effort: low
-    api_key_env: OPENAI_API_KEY
+    provider: grok_relay
+    model: grok-4.6
+    api_key_env: GROK_API_KEY
+    base_url_env: GROK_BASE_URL
+    structured_output_mode: capability_negotiation
 
   b:
     annotator_id: annotator_b
-    provider: glm
-    model: glm-5.2
+    provider: glm_relay
+    model: glm-5.3
     api_key_env: GLM_API_KEY
     base_url_env: GLM_BASE_URL
-    low_variance_configuration: TBD
+    structured_output_mode: capability_negotiation
 
 credentials:
-  openai_api_key_env: OPENAI_API_KEY
+  grok_api_key_env: GROK_API_KEY
+  grok_base_url_env: GROK_BASE_URL
   glm_api_key_env: GLM_API_KEY
   glm_base_url_env: GLM_BASE_URL

@@ -8,9 +8,9 @@ import pytest
 import yaml
 
 from migb.phase2.annotation.adapters import (
-    GLMAnnotationAdapter,
+    GLMRelayAnnotationAdapter,
     MissingCredentialsError,
-    OpenAIAnnotationAdapter,
+    GrokRelayAnnotationAdapter,
     RemoteInferenceDisabledError,
 )
 from migb.phase2.annotation.agreement import classify_annotation_pair
@@ -87,7 +87,7 @@ def _output(
 
 
 def _response(
-    adapter: OpenAIAnnotationAdapter | GLMAnnotationAdapter,
+    adapter: GrokRelayAnnotationAdapter | GLMRelayAnnotationAdapter,
     *,
     request: AnnotationRequest | None = None,
     output: dict[str, object] | None = None,
@@ -177,63 +177,71 @@ def test_prompt_is_deterministic_and_excludes_routing_metadata() -> None:
 def test_provider_request_construction_and_configuration_are_separate_from_credentials() -> None:
     taxonomy = load_taxonomy_snapshot(TAXONOMY_PATH)
     request = _request()
-    openai = OpenAIAnnotationAdapter(
+    grok = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
         reasoning_effort="low",
     )
-    built_a = openai.build_request(request, taxonomy)
+    built_a = grok.build_request(request, taxonomy)
     payload_a = built_a["payload"]
-    assert built_a["provider"] == "openai"
-    assert payload_a["model"] == "gpt-5.6-sol"
+    assert built_a["provider"] == "grok_relay"
+    assert grok.provider_id == "grok_relay"
+    assert payload_a["model"] == "grok-4.6"
     assert payload_a["reasoning_effort"] == "low"
+    assert payload_a["response_format"]["type"] == "json_schema"
     assert "temperature" not in payload_a
     assert "top_p" not in payload_a
-    assert "OPENAI_API_KEY" not in json.dumps(built_a)
+    assert "GROK_API_KEY" not in json.dumps(built_a)
     assert built_a["provenance"]["peer_annotation_visible"] is False
 
-    glm = GLMAnnotationAdapter(
+    glm = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3",
         api_key_env="GLM_API_KEY",
         base_url_env="GLM_BASE_URL",
     )
-    built_b = glm.build_request(request, taxonomy)
-    assert built_b["provider"] == "glm"
-    assert built_b["payload"]["model"] == "glm-5.2"
+    built_b = glm.build_request(request, taxonomy, structured_output_mode="json_object")
+    assert built_b["provider"] == "glm_relay"
+    assert glm.provider_id == "glm_relay"
+    assert built_b["payload"]["model"] == "glm-5.3"
     assert built_b["payload"]["response_format"] == {"type": "json_object"}
     assert "temperature" not in built_b["payload"]
     assert "top_p" not in built_b["payload"]
+    prompt_only = glm.build_request(request, taxonomy, structured_output_mode="prompt_json_only")
+    assert "response_format" not in prompt_only["payload"]
 
 
 def test_credentials_are_environment_only_and_remote_inference_is_disabled() -> None:
     taxonomy = load_taxonomy_snapshot(TAXONOMY_PATH)
-    adapter = OpenAIAnnotationAdapter(
+    adapter = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
     )
-    with pytest.raises(MissingCredentialsError, match="OPENAI_API_KEY"):
+    with pytest.raises(MissingCredentialsError, match="GROK_API_KEY"):
         adapter.prepare_request(_request(), taxonomy, environ={})
-    assert adapter.credential_value({"OPENAI_API_KEY": "test-only-secret"}) == "test-only-secret"
+    assert adapter.credential_value({"GROK_API_KEY": "unit-test-value"}) == "unit-test-value"
     with pytest.raises(RemoteInferenceDisabledError):
         adapter.infer(_request(), taxonomy)
 
 
 def test_provider_response_parser_accepts_mock_response_and_rejects_malformed_output() -> None:
-    adapter = OpenAIAnnotationAdapter(
+    adapter = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
     )
     response = _response(adapter)
     assert response.primary_domain == "D03"
-    assert response.provider == "openai"
+    assert response.provider == "grok_relay"
     assert response.schema_hash == annotation_schema_hash()
     assert response.peer_annotation_visible is False
 
@@ -248,17 +256,19 @@ def test_provider_response_parser_accepts_mock_response_and_rejects_malformed_ou
 
 
 def test_retry_is_item_level_and_supersedes_both_first_pass_rows() -> None:
-    adapter_a = OpenAIAnnotationAdapter(
+    adapter_a = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
     )
-    adapter_b = GLMAnnotationAdapter(
+    adapter_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3",
         api_key_env="GLM_API_KEY",
+        base_url_env="GLM_BASE_URL",
     )
     usable = _response(adapter_a)
     unreadable = _response(adapter_b, output=_output(evidence_usability="unreadable"))
@@ -290,17 +300,19 @@ def test_retry_is_item_level_and_supersedes_both_first_pass_rows() -> None:
 
 
 def test_agreement_requires_same_final_contract_and_handles_conflicts() -> None:
-    adapter_a = OpenAIAnnotationAdapter(
+    adapter_a = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
     )
-    adapter_b = GLMAnnotationAdapter(
+    adapter_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3",
         api_key_env="GLM_API_KEY",
+        base_url_env="GLM_BASE_URL",
     )
     a = _response(adapter_a)
     b = _response(adapter_b)
@@ -333,11 +345,12 @@ def test_gate2c_artifact_layout_and_row_identity_are_explicit() -> None:
     with pytest.raises(ValueError, match="directory-safe"):
         gate2c_artifact_paths("/data/suzhe/migb", "bad/run")
 
-    adapter = OpenAIAnnotationAdapter(
+    adapter = GrokRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="gpt-5.6-sol",
-        api_key_env="OPENAI_API_KEY",
+        model="grok-4.6",
+        api_key_env="GROK_API_KEY",
+        base_url_env="GROK_BASE_URL",
     )
     response = _response(adapter)
     attempt = adapter.parse_response(
@@ -373,14 +386,23 @@ def test_gate2c_artifact_layout_and_row_identity_are_explicit() -> None:
 
 def test_gate2c_config_declares_models_without_secrets() -> None:
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    assert config["annotators"]["a"]["provider"] == "openai"
-    assert config["annotators"]["a"]["model"] == "gpt-5.6-sol"
-    assert config["annotators"]["a"]["reasoning_effort"] == "low"
-    assert config["annotators"]["b"]["provider"] == "glm"
-    assert config["annotators"]["b"]["model"] == "glm-5.2"
-    assert config["annotators"]["a"]["api_key_env"] == "OPENAI_API_KEY"
+    assert config["annotation_revision"] == "gate2c-annotator-config-v0.2"
+    assert config["annotators"]["a"]["provider"] == "grok_relay"
+    assert config["annotators"]["a"]["model"] == "grok-4.6"
+    assert config["annotators"]["a"]["api_key_env"] == "GROK_API_KEY"
+    assert config["annotators"]["a"]["base_url_env"] == "GROK_BASE_URL"
+    assert config["annotators"]["b"]["provider"] == "glm_relay"
+    assert config["annotators"]["b"]["model"] == "glm-5.3"
     assert config["annotators"]["b"]["api_key_env"] == "GLM_API_KEY"
     assert config["annotators"]["b"]["base_url_env"] == "GLM_BASE_URL"
+    assert config["execution"]["preflight_endpoint"] == "/chat/completions"
+    assert config["execution"]["model_discovery_endpoint"] == "/models"
+    assert config["execution"]["provider_preflight_network_enabled"] is True
+    assert config["execution"]["structured_output_capability_order"] == [
+        "json_schema",
+        "json_object",
+        "prompt_json_only",
+    ]
     assert config["execution"]["max_transport_retries"] == 3
     assert config["execution"]["max_format_retries"] == 1
     assert config["execution"]["max_evidence_retry_count"] == 1

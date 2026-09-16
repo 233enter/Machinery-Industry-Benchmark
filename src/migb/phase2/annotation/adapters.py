@@ -1,4 +1,4 @@
-"""Provider-shaped request builders with a deliberately disabled inference boundary."""
+"""Provider-shaped request builders with an explicit inference boundary."""
 
 from __future__ import annotations
 
@@ -22,6 +22,9 @@ from .schema import (
 from .taxonomy import TaxonomySnapshot, taxonomy_payload_hash
 
 
+STRUCTURED_OUTPUT_MODES = ("json_schema", "json_object", "prompt_json_only")
+
+
 class RemoteInferenceDisabledError(RuntimeError):
     """Raised because Gate 2C-A intentionally has no remote inference runner."""
 
@@ -34,6 +37,12 @@ class AnnotationAdapter(ABC):
     """Common offline boundary for provider-specific request construction."""
 
     provider: str
+
+    @property
+    def provider_id(self) -> str:
+        """Return the stable provider identity stored in Annotation metadata."""
+
+        return self.provider
 
     def __init__(
         self,
@@ -93,6 +102,8 @@ class AnnotationAdapter(ABC):
         self,
         request: AnnotationRequest,
         taxonomy: TaxonomySnapshot,
+        *,
+        structured_output_mode: str | None = None,
     ) -> dict[str, Any]:
         if request.taxonomy_revision != taxonomy.taxonomy_revision:
             raise ValueError("request taxonomy_revision does not match taxonomy snapshot")
@@ -105,11 +116,21 @@ class AnnotationAdapter(ABC):
                 f"request schema_revision must be {SCHEMA_REVISION}; got {request.schema_revision}"
             )
         rendered_prompt = render_annotation_prompt(request, taxonomy)
+        selected_mode = structured_output_mode or getattr(
+            self, "structured_output_mode", "json_schema"
+        )
+        if selected_mode not in STRUCTURED_OUTPUT_MODES:
+            raise ValueError(
+                f"structured_output_mode must be one of {STRUCTURED_OUTPUT_MODES}; got {selected_mode}"
+            )
         return {
             "provider": self.provider,
             "annotator_id": self.annotator_id,
             "annotation_pass": self.annotation_pass,
-            "payload": self._build_provider_payload(rendered_prompt),
+            "payload": self._build_provider_payload(
+                rendered_prompt,
+                structured_output_mode=selected_mode,
+            ),
             "provenance": {
                 "prompt_revision": request.prompt_revision,
                 "prompt_hash": prompt_hash(rendered_prompt),
@@ -122,8 +143,45 @@ class AnnotationAdapter(ABC):
         }
 
     @abstractmethod
-    def _build_provider_payload(self, prompt: str) -> dict[str, Any]:
+    def _build_provider_payload(
+        self,
+        prompt: str,
+        *,
+        structured_output_mode: str,
+    ) -> dict[str, Any]:
         """Build a provider request body without credentials or network effects."""
+
+    def base_url(self, environ: Mapping[str, str] | None = None) -> str:
+        """Read and normalize a provider endpoint from the environment."""
+
+        if self.base_url_env is None:
+            raise MissingCredentialsError(
+                f"missing endpoint environment variable for provider: {self.provider}"
+            )
+        source = os.environ if environ is None else environ
+        value = source.get(self.base_url_env)
+        if not value:
+            raise MissingCredentialsError(
+                f"missing endpoint environment variable: {self.base_url_env}"
+            )
+        return value.strip().rstrip("/")
+
+    def endpoint(self, path: str, environ: Mapping[str, str] | None = None) -> str:
+        """Return a URL below the configured OpenAI-compatible base endpoint."""
+
+        if not path.startswith("/"):
+            raise ValueError("endpoint path must start with '/'")
+        return f"{self.base_url(environ)}{path}"
+
+    def transport_security(self, environ: Mapping[str, str] | None = None) -> str:
+        """Classify endpoint transport without making a network request."""
+
+        url = self.base_url(environ).lower()
+        if url.startswith("https://"):
+            return "https"
+        if url.startswith("http://"):
+            return "plaintext_http"
+        return "unknown"
 
     def infer(self, request: AnnotationRequest, taxonomy: TaxonomySnapshot) -> None:
         """Keep actual remote inference out of Gate 2C-A."""
@@ -205,42 +263,123 @@ class AnnotationAdapter(ABC):
             )
 
 
-class OpenAIAnnotationAdapter(AnnotationAdapter):
-    """OpenAI request builder; it never imports or calls an OpenAI SDK."""
+class OpenAICompatibleAnnotationAdapter(AnnotationAdapter):
+    """OpenAI-compatible Relay adapter with explicit provider identity."""
 
-    provider = "openai"
+    def __init__(
+        self,
+        *,
+        provider: str,
+        annotator_id: str,
+        annotation_pass: str,
+        model: str,
+        api_key_env: str,
+        base_url_env: str,
+        structured_output_mode: str = "json_schema",
+        max_output_tokens: int = 2048,
+        reasoning_effort: str | None = None,
+    ) -> None:
+        if not provider.strip():
+            raise ValueError("provider is required")
+        if structured_output_mode not in STRUCTURED_OUTPUT_MODES:
+            raise ValueError(
+                f"structured_output_mode must be one of {STRUCTURED_OUTPUT_MODES}; got {structured_output_mode}"
+            )
+        super().__init__(
+            annotator_id=annotator_id,
+            annotation_pass=annotation_pass,
+            model=model,
+            api_key_env=api_key_env,
+            max_output_tokens=max_output_tokens,
+            base_url_env=base_url_env,
+            reasoning_effort=reasoning_effort,
+        )
+        self.provider = provider
+        self.structured_output_mode = structured_output_mode
 
-    def _build_provider_payload(self, prompt: str) -> dict[str, Any]:
+    def _build_provider_payload(
+        self,
+        prompt: str,
+        *,
+        structured_output_mode: str,
+    ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_output_tokens": self.max_output_tokens,
-            "response_format": {
+            "max_tokens": self.max_output_tokens,
+        }
+        if self.reasoning_effort is not None:
+            payload["reasoning_effort"] = self.reasoning_effort
+        if structured_output_mode == "json_schema":
+            payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "taxonomy_annotation",
                     "strict": True,
                     "schema": schema_definition(),
                 },
-            },
-        }
-        if self.reasoning_effort is not None:
-            payload["reasoning_effort"] = self.reasoning_effort
+            }
+        elif structured_output_mode == "json_object":
+            payload["response_format"] = {"type": "json_object"}
+        elif structured_output_mode != "prompt_json_only":
+            raise ValueError(f"unsupported structured_output_mode: {structured_output_mode}")
         return payload
 
 
-class GLMAnnotationAdapter(AnnotationAdapter):
-    """GLM-compatible request builder with no provider SDK or network behavior."""
+class GrokRelayAnnotationAdapter(OpenAICompatibleAnnotationAdapter):
+    """Grok-family adapter using the configured OpenAI-compatible Relay."""
 
-    provider = "glm"
+    def __init__(
+        self,
+        *,
+        annotator_id: str = "annotator_a",
+        annotation_pass: str = "a",
+        model: str = "grok-4.6",
+        api_key_env: str = "GROK_API_KEY",
+        base_url_env: str = "GROK_BASE_URL",
+        structured_output_mode: str = "json_schema",
+        max_output_tokens: int = 2048,
+        reasoning_effort: str | None = None,
+    ) -> None:
+        super().__init__(
+            provider="grok_relay",
+            annotator_id=annotator_id,
+            annotation_pass=annotation_pass,
+            model=model,
+            api_key_env=api_key_env,
+            base_url_env=base_url_env,
+            structured_output_mode=structured_output_mode,
+            max_output_tokens=max_output_tokens,
+            reasoning_effort=reasoning_effort,
+        )
 
-    def _build_provider_payload(self, prompt: str) -> dict[str, Any]:
-        return {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": self.max_output_tokens,
-            "response_format": {"type": "json_object"},
-        }
+
+class GLMRelayAnnotationAdapter(OpenAICompatibleAnnotationAdapter):
+    """GLM-family adapter using the configured OpenAI-compatible Relay."""
+
+    def __init__(
+        self,
+        *,
+        annotator_id: str = "annotator_b",
+        annotation_pass: str = "b",
+        model: str = "glm-5.3",
+        api_key_env: str = "GLM_API_KEY",
+        base_url_env: str = "GLM_BASE_URL",
+        structured_output_mode: str = "json_schema",
+        max_output_tokens: int = 2048,
+        reasoning_effort: str | None = None,
+    ) -> None:
+        super().__init__(
+            provider="glm_relay",
+            annotator_id=annotator_id,
+            annotation_pass=annotation_pass,
+            model=model,
+            api_key_env=api_key_env,
+            base_url_env=base_url_env,
+            structured_output_mode=structured_output_mode,
+            max_output_tokens=max_output_tokens,
+            reasoning_effort=reasoning_effort,
+        )
 
 
 def _extract_model_output(raw_response: Any) -> Mapping[str, Any]:
@@ -264,6 +403,8 @@ def _extract_model_output(raw_response: Any) -> Mapping[str, Any]:
             message = choice.get("message")
             if isinstance(message, Mapping):
                 content = message.get("content")
+                if isinstance(content, Mapping):
+                    return content
                 if isinstance(content, str):
                     return _extract_model_output(content)
                 if isinstance(content, list):
