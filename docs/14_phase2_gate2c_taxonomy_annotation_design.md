@@ -569,9 +569,9 @@ Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 Benchmark Item LLM calls: NOT EXECUTED
 ```
 
-下一步必须先补齐两组 Provider 环境变量并重新执行 capability preflight。只有 technical
-preflight 通过，且 Project Owner 接受明文 HTTP 风险或切换到 HTTPS endpoint 后，才可另行
-授权 Gate 2C-B：
+下一步必须先处理 Grok Relay synthetic `json_schema` HTTP 400，并重新执行 capability
+preflight；不得更换 `grok-4.6` 或 `glm-5.3`。只有 technical preflight 通过，且 Project
+Owner 接受明文 HTTP 风险或切换到 HTTPS endpoint 后，才可另行授权 Gate 2C-B：
 
 ```text
 Gate 2C annotator configuration,

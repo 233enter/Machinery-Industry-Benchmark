@@ -92,3 +92,41 @@ credentials, or proceed directly to the fixed 20-item dry-run.
 Provide the three remote environment variables without recording their values, synchronize the
 remote checkout with the reviewed Gate 2C-A commit, and rerun the two-provider preflight. Only
 if both providers pass may a new dry-run Run ID and Runtime Artifact directory be created.
+
+## 7. Provider Preflight Resolution
+
+本节记录 2026-09-16 的新 Provider Preflight；第 2 节保留为此前 OpenAI/GLM 5.2 配置下的
+历史阻塞记录。本次使用 configuration revision `gate2c-annotator-config-v0.2`，未修改
+Prompt、Schema 或 Taxonomy revision。
+
+No credential values, prefixes, suffixes, lengths, or Authorization headers were printed,
+logged, persisted, or committed.
+
+| Check | Annotator A / Grok | Annotator B / GLM |
+| --- | --- | --- |
+| Provider | `grok_relay` | `glm_relay` |
+| Requested model | `grok-4.6` | `glm-5.3` |
+| API Key presence | `GROK_API_KEY present=true` | `GLM_API_KEY present=true` |
+| Credential isolation | Distinct from B | Distinct from A |
+| `/models` availability | HTTP 200; exact requested model found | HTTP 200; exact requested model found |
+| Synthetic endpoint | `http://139.196.137.155/v1/chat/completions` | `http://139.196.137.155/v1/chat/completions` |
+| Structured-output mode | Unresolved; `json_schema` returned HTTP 400 | `json_schema` |
+| Resolved model | `null` | `glm-5.3` |
+| Schema validation | `false` (no successful annotation payload) | `true` |
+| Request ID | `2dbca621-5f1b-4169-ac24-8ee95001e014` | `2026091611451456483f565dac4ddd` |
+| Input / output tokens | `null / null` | `2296 / 1216` |
+| Latency | `1791 ms` | `37539 ms` |
+| Provider result | Failed synthetic preflight | Passed synthetic preflight |
+
+Grok 的 HTTP 400 未被当前 explicit unsupported-format classifier 确认为可回退错误，因而
+本次没有继续尝试 `json_object` 或 `prompt_json_only`；没有进行 alias 替换。GLM 返回的
+`model` 与 requested model 完全一致。没有确认 silent model substitution。
+
+```text
+transport_security = plaintext_http
+Technical Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
+20-item Benchmark Dry-run: NO / NOT AUTHORIZED
+```
+
+Security Risk: API credentials and annotation payloads are not protected by TLS at the configured
+relay endpoint. 本次 technical preflight 不因该风险自动阻塞；但 20-item Dry-run 仍未授权。

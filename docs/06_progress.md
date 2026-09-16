@@ -6,9 +6,8 @@ Current Milestone: Source Corpus Calibration v0.1
 
 Current Task: Gate 2C-B Provider Preflight Blocked
 
-Next Task: 在执行环境注入 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY`、
-`GLM_BASE_URL` 后重新执行 capability preflight；不得更换冻结模型，也不得绕过 preflight
-直接执行 dry-run。
+Next Task: 处理 Grok Relay synthetic `json_schema` HTTP 400，并重新执行 capability
+preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dry-run。
 
 ## Current Status
 
@@ -49,7 +48,7 @@ Next Task: 在执行环境注入 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
 - Gate 2C-A Design Freeze: Completed / PASSED；Annotator A=`grok_relay/grok-4.6`，Annotator B=`glm_relay/glm-5.3`，configuration revision=`gate2c-annotator-config-v0.2`；Prompt、Schema、Taxonomy revision 保持不变。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；当前执行环境未提供 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY`、`GLM_BASE_URL`，未调用 `/models` 或 synthetic request，未执行 20-item dry-run。
+- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；两把 Key 均存在且不同，Grok/GLM `/models` 均发现精确 model ID；GLM synthetic 通过，Grok synthetic `json_schema` 返回 HTTP 400，未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 - Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
@@ -100,12 +99,12 @@ Next Task: 在执行环境注入 `GROK_API_KEY`、`GROK_BASE_URL`、`GLM_API_KEY
 - 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；Owner 接受 annotation-side retry、拒绝 automatic pre-annotation OCR trigger。
 - 完成 Gate 2B Adaptive Evidence Closeout：Gate 2B Final Verdict 为 `PASSED`；Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 为 `CANCELLED / NOT REQUIRED`；Gate 2B canonical Runtime 保持 immutable。
 - 完成 Gate 2C-A Design Freeze：冻结 annotator 配置、prompt、schema、provider adapter、retry semantics、Artifact 设计和 20-item dry-run protocol；当前不执行真实 Benchmark Item Annotation。
-- Gate 2C-B Provider Preflight 被阻塞：当前执行环境未提供新的 Provider 环境变量；未发起 `/models` 或 synthetic 请求，未创建 Runtime Annotation Artifact。
+- Gate 2C-B Provider Preflight 被阻塞：Grok synthetic preflight 返回 HTTP 400，GLM synthetic preflight 通过；未创建 Runtime Annotation Artifact，未执行 20-item dry-run。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Provide the four Provider environment variables without exposing their values, rerun the Provider capability preflight, and only then consider the 20-item dual-annotator dry-run.
+Resolve the Grok Relay synthetic preflight HTTP 400 without changing the frozen model ID, rerun the Provider capability preflight, and only then consider the 20-item dual-annotator dry-run.
 
 ## 变更记录
 
@@ -146,4 +145,5 @@ Provide the four Provider environment variables without exposing their values, r
 | 2026-09-15 | Gate 2C-B Provider Preflight 被阻塞：远程环境未提供 `OPENAI_API_KEY`、`GLM_API_KEY`、`GLM_BASE_URL`；未调用 synthetic request，未执行 20-item dry-run；下一任务为补齐凭据后重新执行 Provider capability preflight |
 | 2026-09-16 | 根据 Project Owner 决定更新 Gate 2C Annotator：A=`grok_relay/grok-4.6`、B=`glm_relay/glm-5.3`，使用不同 Key 和同一 OpenAI-compatible Relay；configuration revision=`gate2c-annotator-config-v0.2`，Prompt/Schema/Taxonomy revision 不变 |
 | 2026-09-16 | Gate 2C-B Provider Preflight 仍为 BLOCKED BY PROVIDER PREFLIGHT：当前执行环境未提供新 Provider 环境变量；未调用 `/models` 或 synthetic request，未执行 20-item dry-run；下一任务为补齐环境变量后重新执行 capability preflight |
+| 2026-09-16 | Provider 配置已加载并完成实际 Preflight：两把 Key 均存在且不同，Grok/GLM 精确 model ID 均可用；GLM `json_schema` synthetic 通过，Grok `json_schema` 返回 HTTP 400；Gate 2C-B 仍 BLOCKED，未执行 20-item dry-run |
 | 2026-09-16 | 增加本地 Provider 环境文件加载入口和模板；真实 Key 保持 Git-ignored、owner-only，预检脚本可自动读取；Unit Tests 更新为 87 passed |
