@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the bounded Gate 2C Provider diagnostics without Benchmark annotation."""
+"""Run the bounded historical Gate 2C Provider diagnostics without Benchmark annotation."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ DEFAULT_CONFIG = REPOSITORY_ROOT / "configs/phase2/gate2c_annotation_v0.1.yaml"
 DEFAULT_TAXONOMY = REPOSITORY_ROOT / "configs/phase2/taxonomy_annotation_v0.1.yaml"
 DEFAULT_PROVIDER_ENV_FILE = REPOSITORY_ROOT / "configs/phase2/gate2c_provider.local.env"
 IDENTITY_CANDIDATES = ("glm-5.1", "glm-4.7", "glm-5.3-flash")
+HISTORICAL_REJECTED_B_MODEL = "glm-5.2"
 
 
 def _adapter_from_config(label: str, raw: dict[str, Any]) -> GLMRelayAnnotationAdapter:
@@ -126,9 +127,14 @@ def main() -> int:
         raise ValueError("Provider diagnostics require owner-verified model discovery")
 
     adapter_a = _adapter_from_config("a", raw_annotators["a"])
-    adapter_b = _adapter_from_config("b", raw_annotators["b"])
-    if adapter_b.model != "glm-5.2":
-        raise ValueError("diagnostic expects the currently frozen B model glm-5.2")
+    current_b_raw = raw_annotators["b"]
+    adapter_b = GLMRelayAnnotationAdapter(
+        annotator_id=current_b_raw["annotator_id"],
+        annotation_pass="b",
+        model=HISTORICAL_REJECTED_B_MODEL,
+        api_key_env=current_b_raw["api_key_env"],
+        base_url_env=current_b_raw["base_url_env"],
+    )
     taxonomy = load_taxonomy_snapshot(args.taxonomy)
     request = synthetic_annotation_request(taxonomy.taxonomy_revision)
     environment = load_provider_environment(args.provider_env_file, os.environ)
@@ -178,7 +184,7 @@ def main() -> int:
         "transport_security": adapter_a.transport_security(environment),
         "model_discovery_source": "owner_verified",
         "annotator_a": _provider_summary(result_a),
-        "current_annotator_b": {
+        "historical_rejected_annotator_b": {
             "requested_model": adapter_b.model,
             "status": "blocked_by_confirmed_model_substitution",
             "formal_schema_preflight": "not_rerun",

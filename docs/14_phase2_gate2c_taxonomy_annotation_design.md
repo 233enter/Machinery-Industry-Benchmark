@@ -3,9 +3,9 @@
 Project: Mechanical Industry General Benchmark
 Document: Phase 2 Gate 2C Taxonomy Annotation Execution Design
 Version: 0.1
-Status: Reviewed - Provider Preflight Blocked
+Status: Reviewed - Provider Preflight Passed / Dry-run Awaiting Authorization
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C-B Provider Capability Diagnosis
+Current Task: Gate 2C-B 20-item Dual-Annotator Dry-run Review
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档目的与边界
@@ -265,12 +265,12 @@ capability preflight，不允许进入 20-item 或 600-item Annotation。
 ### 8.1 Frozen Annotator Configuration
 
 Gate 2C-B 的当前配置冻结为（configuration revision：
-`gate2c-annotator-config-v0.3`）：
+`gate2c-annotator-config-v0.4`）：
 
 | Annotator | Provider | Model | Low-variance setting | Credential environment variable |
 | --- | --- | --- | --- | --- |
 | A (`annotator_a`) | `glm_relay` | `glm-5.3` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
-| B (`annotator_b`) | `glm_relay` | `glm-5.2` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
+| B (`annotator_b`) | `glm_relay` | `glm-5.3-flash` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
 
 配置文件为 `configs/phase2/gate2c_annotation_v0.1.yaml`。两个 Annotator 使用同一
 OpenAI-compatible GLM Relay base URL 和同一个 `GLM_API_KEY`，但仍然发起两个独立的
@@ -281,10 +281,13 @@ requested model 不得合并。当前 Owner 提供的 endpoint 为：
 GLM_BASE_URL=http://139.196.137.155/v1
 ```
 
-Owner Decision：此前的 `grok-4.6 + glm-5.3` 配置因 Grok 4.6 服务预计不可用而取消，
-改为 `glm-5.3 + glm-5.2`。两者属于同一模型家族，保留的是 model-version diversity，
-不宣称与跨厂商 Annotator diversity 完全等价。双 Annotator 的独立性来自独立请求、
-相互不可见的输出、相同 Evidence/Taxonomy/Prompt/Schema 和不同 requested model。
+Owner Decision：此前的 `grok-4.6 + glm-5.3` 配置因 Grok 4.6 服务预计不可用而取消；随后
+采用的 `glm-5.2` 被拒绝，因为请求 `glm-5.2` 时 Relay 实际返回 `glm-5.3`，构成
+confirmed silent model substitution。当前改为 `glm-5.3 + glm-5.3-flash`。A/B 属于
+同一 GLM 5.3 模型家族，但 Relay 返回的模型身份不同，分别执行独立推理请求；当前只
+声明 model-variant diversity，不声明 cross-family 或 cross-generation diversity。
+双 Annotator 的独立性来自独立请求、相互不可见的输出、相同 Evidence/Taxonomy/Prompt/Schema
+和不同 model identity。
 
 运行时只从环境变量读取 URL 和 Key，不把 Key 写入配置或 Artifact。不设置或硬编码
 `temperature`、`top_p`；Provider 支持的低随机性参数必须在 dry-run 前通过 capability
@@ -385,7 +388,7 @@ disabled，只有独立的 preflight requester 可以发起 synthetic `/chat/com
 
 本次 Provider preflight 使用 Project Owner 已确认的 model discovery 记录，不重新调用
 `/models`；记录 `model_discovery=owner_verified`，并以精确 requested model ID 判断可
-访问性：`glm-5.3` 与 `glm-5.2` 不接受 alias 自动替换。每个结果至少保留
+访问性：`glm-5.3` 与 `glm-5.3-flash` 不接受 alias 自动替换。每个结果至少保留
 `annotator_id`、`provider_id`、`base_url`、`transport_security`、`requested_model`、
 `available_models_relevant`、discovery source、HTTP status 和 error type；不保留完整
 Authorization header。
@@ -570,8 +573,8 @@ Owner Review 和 Parent Group × Domain 分析后，才进入 Gate 2C-D，决定
 Gate 2B: PASSED
 Evidence Contract: evidence-v0.3-adaptive-v0.1
 Gate 2C-A: PASSED
-Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
-Gate 2C-B 20-item Dry-run: NOT READY / NOT AUTHORIZED
+Gate 2C-B Provider Preflight: PASSED
+Gate 2C-B 20-item Dry-run: READY / AWAITING OWNER AUTHORIZATION
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 Benchmark Item LLM calls: NOT EXECUTED
 ```
@@ -591,8 +594,39 @@ and 20-item dry-run protocol
 在上述条件满足且 Gate 2C-B 获得授权前，不发送任何真实 Benchmark Item。
 
 随后对 Annotator A=`glm-5.3` 完成 capability re-probe：`json_schema` 在 HTTP 200、model
-match 和 canonical Schema Validation 三项均通过，当前工作模式为 `json_schema`。对 B
-候选执行了最小 identity diagnostic：`glm-5.1` 和 `glm-4.7` 均发生 resolved-model
-substitution，`glm-5.3-flash` 返回 exact identity。`glm-5.3-flash` 仅为 candidate，
-不是新的冻结配置；当前 B 仍保持 `glm-5.2`，等待 Project Owner Review，且未对该 candidate
-执行正式 Annotation Schema Preflight。
+match 和 canonical Schema Validation 三项均通过，工作模式冻结为 `json_schema`。对 B
+候选执行的历史最小 identity diagnostic 显示：`glm-5.1` 和 `glm-4.7` 均发生
+resolved-model substitution，`glm-5.3-flash` 返回 exact identity。Project Owner 随后
+正式取消 B=`glm-5.2`，选择 B=`glm-5.3-flash` 并完成正式 Annotation Schema Preflight。
+
+### 11.1 Current Owner Resolution and Formal B Preflight
+
+当前有效的 Provider 配置为：
+
+```text
+Annotator A: glm_relay / glm-5.3
+Annotator B: glm_relay / glm-5.3-flash
+configuration revision: gate2c-annotator-config-v0.4
+```
+
+`glm-5.2` 被正式拒绝：其请求身份被 Relay 静默解析为 `glm-5.3`。B 的正式
+`glm-5.3-flash` Schema Preflight 使用固定 synthetic Evidence、当前 Taxonomy snapshot、
+正式 Prompt 和 canonical Schema validator，未使用真实 Benchmark Evidence。
+
+| Attempt | HTTP | Model match | Schema validation | Result | Latency |
+| --- | ---: | ---: | ---: | --- | ---: |
+| `json_schema` | `200` | `PASS` | `FAIL` (`parse_error`) | continue negotiation | `37629 ms` |
+| `json_object` | `200` | `PASS` | `PASS` | selected | `32666 ms` |
+
+```text
+requested_model = glm-5.3-flash
+resolved_model = glm-5.3-flash
+structured_output_mode = json_object
+provider_capability = PASS
+transport_security = plaintext_http
+```
+
+A 的既有 capability result 保持冻结：`glm-5.3`、`json_schema`、canonical Schema
+validation `PASS`；本次未重复调用 A。两次 B 请求均为独立 synthetic capability attempts，
+未执行 20-item 或 600-item Annotation。Gate 2C-B Provider Preflight 已通过，但 20-item
+Dual-Annotator Dry-run 仍需 Project Owner 单独授权。

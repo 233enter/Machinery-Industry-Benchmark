@@ -202,7 +202,7 @@ def test_shared_glm_credential_supports_two_independent_model_annotators_without
     adapter_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3-flash",
         api_key_env="GLM_API_KEY",
         base_url_env="GLM_BASE_URL",
     )
@@ -214,12 +214,12 @@ def test_shared_glm_credential_supports_two_independent_model_annotators_without
     discoveries = (
         owner_verified_model_discovery(
             adapter_a,
-            ("glm-5.3", "glm-5.2"),
+            ("glm-5.3", "glm-5.3-flash"),
             environ=environ,
         ),
         owner_verified_model_discovery(
             adapter_b,
-            ("glm-5.3", "glm-5.2"),
+            ("glm-5.3", "glm-5.3-flash"),
             environ=environ,
         ),
     )
@@ -255,7 +255,7 @@ def test_shared_glm_credential_supports_two_independent_model_annotators_without
         "annotator_a",
         "annotator_b",
     ]
-    assert [item.requested_model for item in result.provider_results] == ["glm-5.3", "glm-5.2"]
+    assert [item.requested_model for item in result.provider_results] == ["glm-5.3", "glm-5.3-flash"]
     assert [item.provider for item in result.provider_results] == ["glm_relay", "glm_relay"]
     assert [item.structured_output_mode for item in result.provider_results] == [
         "json_schema",
@@ -264,7 +264,7 @@ def test_shared_glm_credential_supports_two_independent_model_annotators_without
     assert [method for method, _ in calls] == ["POST", "POST"]
     assert [payload["model"] for _, payload in calls if payload is not None] == [
         "glm-5.3",
-        "glm-5.2",
+        "glm-5.3-flash",
     ]
     assert all(item.discovery.discovery_source == "owner_verified" for item in result.provider_results)
 
@@ -274,12 +274,12 @@ def test_shared_glm_credential_missing_fails_before_synthetic_requests() -> None
     adapter_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3-flash",
     )
     environ = {"GLM_BASE_URL": BASE_URL}
     discoveries = (
-        owner_verified_model_discovery(adapter_a, ("glm-5.3", "glm-5.2"), environ=environ),
-        owner_verified_model_discovery(adapter_b, ("glm-5.3", "glm-5.2"), environ=environ),
+        owner_verified_model_discovery(adapter_a, ("glm-5.3", "glm-5.3-flash"), environ=environ),
+        owner_verified_model_discovery(adapter_b, ("glm-5.3", "glm-5.3-flash"), environ=environ),
     )
 
     def requester(*args: Any, **kwargs: Any) -> RelayHTTPResponse:

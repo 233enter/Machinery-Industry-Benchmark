@@ -200,14 +200,14 @@ def test_provider_request_construction_and_configuration_are_separate_from_crede
     glm_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.2",
+        model="glm-5.3-flash",
         api_key_env="GLM_API_KEY",
         base_url_env="GLM_BASE_URL",
     )
     built_b = glm_b.build_request(request, taxonomy, structured_output_mode="json_object")
     assert built_b["provider"] == "glm_relay"
     assert glm_b.provider_id == "glm_relay"
-    assert built_b["payload"]["model"] == "glm-5.2"
+    assert built_b["payload"]["model"] == "glm-5.3-flash"
     assert payload_a["model"] != built_b["payload"]["model"]
     assert glm_a.annotator_id != glm_b.annotator_id
     assert built_b["payload"]["response_format"] == {"type": "json_object"}
@@ -388,17 +388,17 @@ def test_gate2c_artifact_layout_and_row_identity_are_explicit() -> None:
 
 def test_gate2c_config_declares_models_without_secrets() -> None:
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    assert config["annotation_revision"] == "gate2c-annotator-config-v0.3"
+    assert config["annotation_revision"] == "gate2c-annotator-config-v0.4"
     assert config["annotators"]["a"]["provider"] == "glm_relay"
     assert config["annotators"]["a"]["model"] == "glm-5.3"
     assert config["annotators"]["a"]["api_key_env"] == "GLM_API_KEY"
     assert config["annotators"]["a"]["base_url_env"] == "GLM_BASE_URL"
     assert config["annotators"]["b"]["provider"] == "glm_relay"
-    assert config["annotators"]["b"]["model"] == "glm-5.2"
+    assert config["annotators"]["b"]["model"] == "glm-5.3-flash"
     assert config["annotators"]["b"]["api_key_env"] == "GLM_API_KEY"
     assert config["annotators"]["b"]["base_url_env"] == "GLM_BASE_URL"
     assert config["execution"]["model_discovery_source"] == "owner_verified"
-    assert config["execution"]["owner_verified_models"] == ["glm-5.3", "glm-5.2"]
+    assert config["execution"]["owner_verified_models"] == ["glm-5.3", "glm-5.3-flash"]
     assert config["credentials"]["policy"] == "shared_glm_credential_allowed"
     assert config["execution"]["preflight_endpoint"] == "/chat/completions"
     assert config["execution"]["model_discovery_endpoint"] == "/models"

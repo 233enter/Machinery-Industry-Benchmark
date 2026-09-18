@@ -4,11 +4,14 @@ Project: Mechanical Industry General Benchmark
 
 Version: 0.1
 
-Status: Blocked - Provider Preflight
+Status: Provider Preflight Passed - Dry-run Awaiting Authorization
 
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Stage: `gate2c-b-provider-preflight`
+
+Current effective configuration: Annotator A=`glm-5.3`; Annotator B=`glm-5.3-flash`;
+configuration revision=`gate2c-annotator-config-v0.4`.
 
 ## 1. Execution Boundary
 
@@ -27,7 +30,7 @@ Stage: `gate2c-b-provider-preflight`
 | Provider env file | `configs/phase2/gate2c_provider.local.env` (Git-ignored, owner-only) |
 | Benchmark dry-run authorization | `false` |
 
-## 2. Frozen Annotators
+## 2. Historical Frozen Annotators
 
 | Annotator | Provider ID | Requested model | API key environment | Base URL environment |
 | --- | --- | --- | --- | --- |
@@ -43,7 +46,7 @@ http://139.196.137.155/v1
 The URL is injected through the environment; it is not hard-coded into Python code or stored as
 a credential. The two API Keys must be different and are never mixed.
 
-## 3. Provider Preflight Results
+## 3. Historical Provider Preflight Results
 
 No credential values, prefixes, suffixes, or lengths were printed, logged, persisted, or
 committed.
@@ -86,7 +89,7 @@ This transport risk does not automatically block the technical Provider prefligh
 20-item Benchmark Dry-run authorization remains pending explicit Project Owner acceptance of the
 risk or a switch to an HTTPS endpoint.
 
-## 5. Final Verdict
+## 5. Historical Final Verdict
 
 ```text
 Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
@@ -105,7 +108,7 @@ Grok model availability and GLM model availability both passed. GLM synthetic in
 Grok synthetic inference failed at the first structured-output attempt with HTTP 400. Do not
 substitute a model alias, change the frozen model IDs, or run the 20-item dry-run directly.
 
-## 6. Validation
+## 6. Historical Validation
 
 | Check | Result |
 | --- | --- |
@@ -115,6 +118,74 @@ substitute a model alias, change the frozen model IDs, or run the 20-item dry-ru
 | 600-item annotation | Not run |
 | OCR / Source Selection | Not run |
 | Runtime Annotation Artifact | Not created |
+
+## 12. Current Owner Selection and Formal B Preflight
+
+Project Owner formally rejected the previous B configuration because a request for `glm-5.2`
+resolved to `glm-5.3`. The selected configuration is now:
+
+| Field | Annotator A | Annotator B |
+| --- | --- | --- |
+| Annotator ID | `annotator_a` | `annotator_b` |
+| Provider | `glm_relay` | `glm_relay` |
+| Requested model | `glm-5.3` | `glm-5.3-flash` |
+| Credential environment | Shared `GLM_API_KEY` | Shared `GLM_API_KEY` |
+| Base URL environment | `GLM_BASE_URL` | `GLM_BASE_URL` |
+| Inference contract | Independent request | Independent request |
+| Configuration revision | `gate2c-annotator-config-v0.4` | `gate2c-annotator-config-v0.4` |
+
+The two Annotators use the same Provider and credential, but retain distinct Annotator identities,
+requested model IDs, and independent inference requests. They provide model-variant diversity
+within the same GLM 5.3 model family; this is not cross-family or cross-generation diversity.
+
+### 12.1 Formal `glm-5.3-flash` Synthetic Schema Preflight
+
+Annotator A's previously passed capability result remains frozen and was not re-run in this task:
+`glm-5.3` with `json_schema` and canonical Schema validation `PASS`. Annotator B was tested with
+the formal Taxonomy snapshot, Prompt, Annotation Schema, and local canonical validator using the
+fixed synthetic document only.
+
+| Attempt | HTTP status | Requested model | Resolved model | Model match | Schema validation | Selected | Request ID | Input / output / reasoning tokens | Latency |
+| --- | ---: | --- | --- | --- | --- | --- | --- | --- | ---: |
+| `json_schema` | `200` | `glm-5.3-flash` | `glm-5.3-flash` | `PASS` | `FAIL` (`parse_error`) | No | `202609181045394120028a403b4d10` | `2296 / 1192 / 1010` | `37629 ms` |
+| `json_object` | `200` | `glm-5.3-flash` | `glm-5.3-flash` | `PASS` | `PASS` | Yes | `202609181046177e0be550470648f6` | `2349 / 1226 / 1027` | `32666 ms` |
+
+The selected B structured-output mode is `json_object`. No model substitution was observed. The
+provider capability result is:
+
+```text
+GLM-5.3: PASS / json_schema (frozen prior result)
+GLM-5.3-flash: PASS / json_object
+Gate 2C-B Provider Preflight: PASSED
+transport_security = plaintext_http
+```
+
+The B preflight used two capability attempts in one synthetic request negotiation and no ordinary
+20-item or 600-item Annotation request. No real Benchmark Evidence, OCR, Source Selection, or
+Runtime Annotation Artifact was used or created.
+
+## 13. Current Gate Status and Next Action
+
+```text
+Gate 2C-A: PASSED
+Gate 2C-B Provider Preflight: PASSED
+20-item Dual-Annotator Dry-run: READY / AWAITING OWNER AUTHORIZATION
+20-item Dry-run Authorized: NO
+Current Task: Gate 2C-B 20-item Dual-Annotator Dry-run Review
+```
+
+The next action is Project Owner review and explicit authorization of the fixed 20-item
+dual-Annotator dry-run. This report does not authorize that dry-run.
+
+Current validation:
+
+| Check | Result |
+| --- | --- |
+| Mock/unit tests | `93 passed` |
+| `git diff --check` | `PASS` |
+| 20-item dry-run | Not run |
+| 600-item annotation | Not run |
+| OCR / Source Selection | Not run |
 
 ## 9. Structured Output Negotiation Diagnosis
 
@@ -159,9 +230,9 @@ Annotation Schema request was sent for any candidate. Testing stopped at the fir
 | `glm-4.7` | `200` | `glm-4.7` | `glm-5.3-flash` | `false` | `resolved_model_mismatch` |
 | `glm-5.3-flash` | `200` | `glm-5.3-flash` | `glm-5.3-flash` | `true` | None |
 
-The first exact-match candidate is `glm-5.3-flash`. It is a diagnostic recommendation only, not a
-frozen Annotator B configuration. The current config remains `glm-5.2` pending Project Owner
-review; no formal Schema Preflight was run for `glm-5.3-flash`.
+The first exact-match candidate was `glm-5.3-flash`. At the time of this historical diagnostic it
+was only a recommendation, not a frozen Annotator B configuration; no formal Schema Preflight had
+yet been run for it. The subsequent Owner decision and formal result are recorded in Section 12.
 
 | Candidate | Request ID | Latency |
 | --- | --- | ---: |
@@ -169,7 +240,7 @@ review; no formal Schema Preflight was run for `glm-5.3-flash`.
 | `glm-4.7` | `202609181035537d249eb0e65f4367` | `1090 ms` |
 | `glm-5.3-flash` | `20260918103555ae0eebeb2fd0485b` | `1483 ms` |
 
-## 11. Current Diagnostic Verdict
+## 11. Historical Diagnostic Verdict
 
 ```text
 GLM-5.3 capability: PASS at json_schema
@@ -182,11 +253,12 @@ Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
 No model configuration was changed automatically. No real Benchmark Evidence, 20-item dry-run,
 600-item annotation, OCR, or Source Selection was executed.
 
-## 7. Current Owner Decision: GLM-only Configuration
+## 7. Historical Owner Decision: GLM-only Configuration
 
-本节为当前有效 Provider Preflight 结果；第 2–6 节中的 Grok / GLM 组合属于历史配置。
-Project Owner 因 Grok 4.6 服务预计不可用，取消 Grok Annotator，并将 configuration
-revision 更新为 `gate2c-annotator-config-v0.3`。
+本节记录此前的 GLM-only Provider Preflight 结果；第 2–6 节中的 Grok / GLM 组合也属于
+历史配置。Project Owner 当时因 Grok 4.6 服务预计不可用，取消 Grok Annotator，并将
+configuration revision 更新为 `gate2c-annotator-config-v0.3`。随后 B=`glm-5.2` 因
+confirmed model substitution 被拒绝，当前结果见本报告末尾。
 
 | Check | Annotator A | Annotator B |
 | --- | --- | --- |
@@ -221,7 +293,7 @@ Gate 2C-B Provider Preflight = BLOCKED BY PROVIDER PREFLIGHT
 No credential values, prefixes, suffixes, lengths, or Authorization headers were printed,
 logged, persisted, or committed.
 
-## 8. Current Validation
+## 8. Historical Validation
 
 | Check | Result |
 | --- | --- |

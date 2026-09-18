@@ -4,10 +4,10 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2C-B Provider Capability Diagnosis - Awaiting Owner Review
+Current Task: Gate 2C-B 20-item Dual-Annotator Dry-run Review
 
-Next Task: Review `glm-5.3-flash` identity candidate；如 Owner 批准，才更新 B 配置并执行
-正式 Schema Preflight。不得自动替换 `glm-5.2`、接受 silent substitution 或执行 dry-run。
+Next Task: Review the frozen `glm-5.3` / `glm-5.3-flash` provider configuration and authorize
+the fixed 20-item dual-annotator dry-run。
 
 ## Current Status
 
@@ -33,7 +33,7 @@ Next Task: Review `glm-5.3-flash` identity candidate；如 Owner 批准，才更
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2C-B Provider Capability Diagnosis - Awaiting Owner Review
+- Current Task: Gate 2C-B 20-item Dual-Annotator Dry-run Review
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
@@ -47,8 +47,8 @@ Next Task: Review `glm-5.3-flash` identity candidate；如 Owner 批准，才更
 - Evidence Contract: `evidence-v0.3-adaptive-v0.1`。
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
-- Gate 2C-A Design Freeze: Completed / PASSED；当前 Annotator A=`glm_relay/glm-5.3`，Annotator B=`glm_relay/glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；两者共享 `GLM_API_KEY`，Prompt、Schema、Taxonomy revision 保持不变。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；A=`glm-5.3` capability re-probe 在 `json_schema` 通过；当前 B=`glm-5.2` 仍因 confirmed resolved model substitution 被拒绝；identity diagnostic 找到 `glm-5.3-flash` exact-match candidate，但未冻结、未执行其正式 Schema Preflight；未执行 20-item dry-run。
+- Gate 2C-A Design Freeze: Completed / PASSED；当前 Annotator A=`glm_relay/glm-5.3`，Annotator B=`glm_relay/glm-5.3-flash`，configuration revision=`gate2c-annotator-config-v0.4`；两者共享 `GLM_API_KEY`，Prompt、Schema、Taxonomy revision 保持不变。
+- Gate 2C-B Provider Preflight: PASSED；A=`glm-5.3` 的冻结工作模式为 `json_schema`；B=`glm-5.3-flash` 精确匹配并在 `json_object` 下完成 canonical Schema Validation；未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 - Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
@@ -99,14 +99,13 @@ Next Task: Review `glm-5.3-flash` identity candidate；如 Owner 批准，才更
 - 完成 Evidence v0.3 OCR Routing Signal Calibration：直接读取既有 767-item Evidence，生成独立 `quality_signals.parquet`；20-item Review Set 中 4 条 `OCR_REQUIRED_REFERENCE`、16 条 `OCR_NOT_REQUIRED_REFERENCE`，无简单规则同时满足 100% garbled recall 与 15% 路由指导线；Owner 接受 annotation-side retry、拒绝 automatic pre-annotation OCR trigger。
 - 完成 Gate 2B Adaptive Evidence Closeout：Gate 2B Final Verdict 为 `PASSED`；Evidence Contract 冻结为 `evidence-v0.3-adaptive-v0.1`；Full 767-item Evidence v0.3 Precomputation 为 `CANCELLED / NOT REQUIRED`；Gate 2B canonical Runtime 保持 immutable。
 - 完成 Gate 2C-A Design Freeze：冻结 annotator 配置、prompt、schema、provider adapter、retry semantics、Artifact 设计和 20-item dry-run protocol；当前不执行真实 Benchmark Item Annotation。
-- Gate 2C-B Provider Preflight 被阻塞：Grok synthetic preflight 返回 HTTP 400，GLM synthetic preflight 通过；未创建 Runtime Annotation Artifact，未执行 20-item dry-run。
+- Gate 2C-B Provider Preflight 已通过：A=`glm-5.3` 与 B=`glm-5.3-flash` 均完成 synthetic capability 验证；未创建 Runtime Annotation Artifact，未执行 20-item dry-run。
 - 未实现完整 PDF Parser、模型调用、数据生成或评测代码。
 
 ## Next Task
 
-Review the `glm-5.3-flash` identity candidate. Only after Project Owner approval may B be
-updated and receive a formal Annotation Schema Preflight; only after that may the 20-item
-dual-annotator dry-run be considered.
+Review the frozen `glm-5.3` / `glm-5.3-flash` provider configuration and authorize the fixed
+20-item dual-annotator dry-run. No 20-item Annotation has been executed.
 
 ## 变更记录
 
@@ -153,3 +152,5 @@ dual-annotator dry-run be considered.
 | 2026-09-18 | Project Owner 取消 Grok Annotator，Gate 2C 配置更新为 `glm-5.3` / `glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；同一 GLM Key、独立请求；Prompt/Schema/Taxonomy/Evidence Contract 不变 |
 | 2026-09-18 | GLM-only Provider Preflight 完成但未通过：`glm-5.3` Schema Validation 失败，`glm-5.2` resolved model 为 `glm-5.3`；Gate 2C-B 保持 BLOCKED，未执行 20-item dry-run |
 | 2026-09-18 | 完成 capability negotiation 修正与诊断：A=`glm-5.3` 的 `json_schema` re-probe 通过；B identity candidates 中 `glm-5.1`、`glm-4.7` 发生 substitution，`glm-5.3-flash` exact-match；仅记录为 candidate，等待 Owner Review，未修改 B、未执行正式 B Schema Preflight 或 20-item dry-run |
+| 2026-09-18 | Project Owner 选择 B=`glm-5.3-flash`，取消原 B=`glm-5.2`；configuration revision 更新为 `gate2c-annotator-config-v0.4`，Prompt/Schema/Taxonomy/Evidence Contract 不变 |
+| 2026-09-18 | 完成 B=`glm-5.3-flash` 正式 Annotation Schema Preflight：`json_schema` Schema 校验失败后按协商顺序切换至 `json_object` 并通过；requested/resolved model exact match；Gate 2C-B Provider Preflight PASSED；20-item dry-run READY / AWAITING OWNER AUTHORIZATION |
