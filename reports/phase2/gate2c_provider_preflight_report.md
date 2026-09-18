@@ -116,6 +116,72 @@ substitute a model alias, change the frozen model IDs, or run the 20-item dry-ru
 | OCR / Source Selection | Not run |
 | Runtime Annotation Artifact | Not created |
 
+## 9. Structured Output Negotiation Diagnosis
+
+本节记录 2026-09-18 对当前 Annotator A=`glm-5.3` 的 capability re-probe。Negotiation
+语义已修正：当某一 mode 返回 HTTP 2xx、resolved model 与 requested model 一致但本地
+Schema Validation 失败时，继续尝试下一个 mode；model mismatch、auth/credential failure
+或不可恢复 transport/provider error 立即停止。Capability negotiation 不计入 production
+`max_format_retries`。
+
+| Attempt | Mode | HTTP success | Model match | Schema valid | Mode usable | Failure category |
+| --- | --- | --- | --- | --- | --- | --- |
+| A-1 | `json_schema` | `true` | `true` | `true` | `true` | None |
+
+| Field | Annotator A / GLM-5.3 |
+| --- | --- |
+| Requested model | `glm-5.3` |
+| Resolved model | `glm-5.3` |
+| Selected working mode | `json_schema` |
+| Canonical Schema validation | `PASS` |
+| Request ID | `202609181035339200a26f8e4e4515` |
+| Input / output / reasoning tokens | `2296 / 1255 / 1079` |
+| Latency | `19399 ms` |
+| Provider capability verdict | `PASS` |
+
+The earlier A attempt had only persisted `AnnotationSchemaError`; the new bounded diagnostic
+fields now preserve `validation_error_field`, `validation_error_type`, and a bounded
+`validation_error_message` whenever a Schema failure occurs. The current re-probe passed at the
+first mode, so no new Schema failure summary was generated and no raw model response was saved.
+
+## 10. Second Annotator Model Identity Diagnosis
+
+The frozen B configuration remains `glm-5.2`. Its prior formal Schema Preflight result was
+`requested_model=glm-5.2` with `resolved_model=glm-5.3`; that substitution remains rejected and
+was not re-run in this diagnostic.
+
+The following candidates were tested with one minimal synthetic identity request each. No formal
+Annotation Schema request was sent for any candidate. Testing stopped at the first exact match.
+
+| Candidate | HTTP | Requested | Resolved | Exact match | Failure category |
+| --- | ---: | --- | --- | --- | --- |
+| `glm-5.1` | `200` | `glm-5.1` | `glm-5.3` | `false` | `resolved_model_mismatch` |
+| `glm-4.7` | `200` | `glm-4.7` | `glm-5.3-flash` | `false` | `resolved_model_mismatch` |
+| `glm-5.3-flash` | `200` | `glm-5.3-flash` | `glm-5.3-flash` | `true` | None |
+
+The first exact-match candidate is `glm-5.3-flash`. It is a diagnostic recommendation only, not a
+frozen Annotator B configuration. The current config remains `glm-5.2` pending Project Owner
+review; no formal Schema Preflight was run for `glm-5.3-flash`.
+
+| Candidate | Request ID | Latency |
+| --- | --- | ---: |
+| `glm-5.1` | `20260918103552a1caba0f66a341f2` | `1460 ms` |
+| `glm-4.7` | `202609181035537d249eb0e65f4367` | `1090 ms` |
+| `glm-5.3-flash` | `20260918103555ae0eebeb2fd0485b` | `1483 ms` |
+
+## 11. Current Diagnostic Verdict
+
+```text
+GLM-5.3 capability: PASS at json_schema
+Current B=GLM-5.2: NOT ACCEPTED because of confirmed model substitution
+Recommended B candidate: GLM-5.3-flash (candidate only)
+Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
+20-item Dual-Annotator Dry-run: NOT AUTHORIZED
+```
+
+No model configuration was changed automatically. No real Benchmark Evidence, 20-item dry-run,
+600-item annotation, OCR, or Source Selection was executed.
+
 ## 7. Current Owner Decision: GLM-only Configuration
 
 本节为当前有效 Provider Preflight 结果；第 2–6 节中的 Grok / GLM 组合属于历史配置。
@@ -159,7 +225,7 @@ logged, persisted, or committed.
 
 | Check | Result |
 | --- | --- |
-| Mock/unit tests | `89 passed` |
+| Mock/unit tests | `93 passed` |
 | `/models` request | Not made; discovery source was `owner_verified` |
 | Synthetic requests | `2 total`, one per independent Annotator |
 | Technical Provider Preflight | `BLOCKED` |

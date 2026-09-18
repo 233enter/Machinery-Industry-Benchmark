@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import stat
 import time
@@ -21,7 +22,7 @@ from .adapters import (
     OpenAICompatibleAnnotationAdapter,
 )
 from .prompt import PROMPT_REVISION
-from .schema import AnnotationRequest, SCHEMA_REVISION
+from .schema import AnnotationAttempt, AnnotationRequest, SCHEMA_REVISION
 from .taxonomy import TaxonomySnapshot
 
 
@@ -424,6 +425,60 @@ def _is_unsupported_response_format(payload: Any, status_code: int | None) -> bo
     )
 
 
+def _validation_error_summary(
+    parsed_attempt: AnnotationAttempt,
+) -> tuple[str | None, str | None, str | None]:
+    """Return a bounded, structured summary without retaining model output."""
+
+    if parsed_attempt.parse_status != "failed":
+        return None, None, None
+    message = parsed_attempt.error_message or ""
+    known_fields = (
+        "primary_domain",
+        "secondary_domains",
+        "secondary_domains[]",
+        "taxonomy_fit",
+        "confidence",
+        "evidence_usability",
+        "evidence_keywords",
+        "evidence_keywords[]",
+        "evidence_rationale",
+        "review_note",
+        "unknown annotation fields",
+        "missing annotation fields",
+    )
+    field = next((item for item in known_fields if message.startswith(item)), None)
+    bounded_message = re.sub(r"\s+", " ", message).strip()[:240] or None
+    return field, parsed_attempt.error_type, bounded_message
+
+
+def _failure_category(
+    response: RelayHTTPResponse,
+    *,
+    model_match: bool,
+    schema_valid: bool,
+    unsupported_response_format: bool,
+    parsed_attempt: AnnotationAttempt,
+) -> str | None:
+    """Classify one capability attempt without conflating mode and retry failures."""
+
+    if not model_match:
+        return "resolved_model_mismatch"
+    if response.status_code in {401, 403}:
+        return "auth_error"
+    if response.status_code is None:
+        return "transport_error"
+    if unsupported_response_format:
+        return "unsupported_mode"
+    if response.status_code >= 400:
+        return "provider_error"
+    if response.status_code >= 200 and response.status_code < 300 and not schema_valid:
+        if parsed_attempt.error_type == "AnnotationSchemaError":
+            return "schema_incompatible_mode"
+        return "parse_error"
+    return None
+
+
 @dataclass(frozen=True)
 class SyntheticPreflightAttempt:
     annotator_id: str
@@ -431,13 +486,19 @@ class SyntheticPreflightAttempt:
     endpoint: str
     requested_model: str
     mode: str
+    http_success: bool
     http_status: int | None
     request_id: str | None
     resolved_model: str | None
     model_match: bool
     schema_valid: bool
     passed: bool
+    mode_usable: bool
     unsupported_response_format: bool
+    failure_category: str | None
+    validation_error_field: str | None
+    validation_error_type: str | None
+    validation_error_message: str | None
     error_type: str | None
     input_tokens: int | None
     output_tokens: int | None
@@ -493,6 +554,17 @@ def synthetic_preflight_attempt(
     schema_valid = parsed_attempt.parse_status == "passed"
     unsupported = _is_unsupported_response_format(response.payload, response.status_code)
     http_success = response.status_code is not None and 200 <= response.status_code < 300
+    validation_error_field, validation_error_type, validation_error_message = (
+        _validation_error_summary(parsed_attempt)
+    )
+    failure_category = _failure_category(
+        response,
+        model_match=model_match,
+        schema_valid=schema_valid,
+        unsupported_response_format=unsupported,
+        parsed_attempt=parsed_attempt,
+    )
+    mode_usable = http_success and model_match and schema_valid
     passed = http_success and model_match and schema_valid
     error_type = response.error_type
     if not http_success and error_type is None:
@@ -507,19 +579,101 @@ def synthetic_preflight_attempt(
         endpoint=endpoint,
         requested_model=adapter.model,
         mode=mode,
+        http_success=http_success,
         http_status=response.status_code,
         request_id=_request_id(response.payload, response.headers),
         resolved_model=resolved_model,
         model_match=model_match,
         schema_valid=schema_valid,
         passed=passed,
+        mode_usable=mode_usable,
         unsupported_response_format=unsupported,
+        failure_category=failure_category,
+        validation_error_field=validation_error_field,
+        validation_error_type=validation_error_type,
+        validation_error_message=validation_error_message,
         error_type=error_type,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         reasoning_tokens=reasoning_tokens,
         started_at=started_at,
         completed_at=completed_at,
+        latency_ms=latency_ms,
+    )
+
+
+@dataclass(frozen=True)
+class ModelIdentityProbeResult:
+    """Minimal model-identity probe result; it does not validate annotation output."""
+
+    provider: str
+    annotator_id: str
+    requested_model: str
+    resolved_model: str | None
+    http_success: bool
+    http_status: int | None
+    request_id: str | None
+    model_match: bool
+    passed: bool
+    failure_category: str | None
+    error_type: str | None
+    latency_ms: int
+
+
+def synthetic_identity_probe(
+    adapter: OpenAICompatibleAnnotationAdapter,
+    *,
+    environ: Mapping[str, str] | None = None,
+    requester: RelayRequester = default_relay_requester,
+    timeout: float = 60.0,
+) -> ModelIdentityProbeResult:
+    """Probe only whether a requested model returns its own identity."""
+
+    endpoint = adapter.endpoint("/chat/completions", environ)
+    headers = {
+        "Authorization": f"Bearer {adapter.credential_value(environ)}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": adapter.model,
+        "messages": [
+            {
+                "role": "user",
+                "content": 'Return exactly: {"probe":"ok"}',
+            }
+        ],
+        "max_tokens": 16,
+    }
+    started = time.monotonic()
+    response = requester("POST", endpoint, headers, payload, timeout)
+    latency_ms = max(0, int(round((time.monotonic() - started) * 1000)))
+    resolved_model = _response_model(response.payload)
+    http_success = response.status_code is not None and 200 <= response.status_code < 300
+    model_match = resolved_model == adapter.model
+    failure_category: str | None = None
+    if response.status_code in {401, 403}:
+        failure_category = "auth_error"
+    elif response.status_code is None:
+        failure_category = "transport_error"
+    elif not http_success:
+        failure_category = "provider_error"
+    elif not model_match:
+        failure_category = "resolved_model_mismatch" if resolved_model else "resolved_model_missing"
+    error_type = response.error_type
+    if not http_success and error_type is None:
+        error_type = "http_error"
+    return ModelIdentityProbeResult(
+        provider=adapter.provider,
+        annotator_id=adapter.annotator_id,
+        requested_model=adapter.model,
+        resolved_model=resolved_model,
+        http_success=http_success,
+        http_status=response.status_code,
+        request_id=_request_id(response.payload, response.headers),
+        model_match=model_match,
+        passed=http_success and model_match,
+        failure_category=failure_category,
+        error_type=error_type,
         latency_ms=latency_ms,
     )
 
@@ -617,7 +771,11 @@ def run_provider_preflight(
                 passed=True,
                 error_type=None,
             )
-        if not attempt.unsupported_response_format or not attempt.model_match:
+        if not attempt.model_match:
+            break
+        if attempt.http_success and not attempt.schema_valid:
+            continue
+        if not attempt.unsupported_response_format:
             break
     return ProviderPreflightResult(
         annotator_id=adapter.annotator_id,

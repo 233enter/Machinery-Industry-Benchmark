@@ -22,6 +22,7 @@ from migb.phase2.annotation.preflight import (
     run_dual_provider_preflight,
     run_provider_preflight,
     synthetic_annotation_request,
+    synthetic_identity_probe,
 )
 from migb.phase2.annotation.taxonomy import load_taxonomy_snapshot
 
@@ -73,6 +74,26 @@ def _success_response(model: str | None) -> RelayHTTPResponse:
         status_code=200,
         payload=payload,
         headers={"x-request-id": "synthetic-header-request-id"},
+    )
+
+
+def _schema_invalid_response(model: str | None) -> RelayHTTPResponse:
+    response = _success_response(model)
+    payload = dict(response.payload)
+    payload["choices"] = [
+        {
+            "message": {
+                "content": json.dumps(
+                    {**_output(), "secondary_domains": ["D01", "D01"]},
+                    ensure_ascii=False,
+                )
+            }
+        }
+    ]
+    return RelayHTTPResponse(
+        status_code=200,
+        payload=payload,
+        headers=response.headers,
     )
 
 
@@ -278,6 +299,44 @@ def test_shared_glm_credential_missing_fails_before_synthetic_requests() -> None
     assert all(item.error_type == "MissingCredentialsError" for item in result.provider_results)
 
 
+def test_identity_probe_uses_minimal_request_and_requires_exact_resolved_model() -> None:
+    adapter = GLMRelayAnnotationAdapter(
+        annotator_id="annotator_b_identity_probe",
+        annotation_pass="b",
+        model="glm-5.1",
+    )
+    calls: list[tuple[str, Mapping[str, Any] | None]] = []
+
+    def requester(
+        method: str,
+        url: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout: float,
+    ) -> RelayHTTPResponse:
+        del url, headers, timeout
+        calls.append((method, payload))
+        return RelayHTTPResponse(
+            status_code=200,
+            payload={"id": "identity-request-id", "model": "glm-5.1"},
+            headers={},
+        )
+
+    result = synthetic_identity_probe(
+        adapter,
+        environ={"GLM_API_KEY": "glm-unit-value", "GLM_BASE_URL": BASE_URL},
+        requester=requester,
+    )
+
+    assert result.passed is True
+    assert result.model_match is True
+    assert result.resolved_model == "glm-5.1"
+    assert [method for method, _ in calls] == ["POST"]
+    assert calls[0][1] is not None
+    assert calls[0][1]["model"] == "glm-5.1"
+    assert "response_format" not in calls[0][1]
+
+
 def test_structured_output_negotiation_falls_back_in_order() -> None:
     adapter = GrokRelayAnnotationAdapter()
     request = synthetic_annotation_request(TAXONOMY.taxonomy_revision)
@@ -326,6 +385,118 @@ def test_structured_output_negotiation_falls_back_in_order() -> None:
     assert [attempt.mode for attempt in result.attempts] == modes
     assert result.attempts[-1].schema_valid is True
     assert result.attempts[-1].resolved_model == "grok-4.6"
+
+
+def test_schema_invalid_2xx_continues_to_json_object() -> None:
+    adapter = GLMRelayAnnotationAdapter(model="glm-5.3")
+    request = synthetic_annotation_request(TAXONOMY.taxonomy_revision)
+    modes: list[str] = []
+
+    def requester(
+        method: str,
+        url: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout: float,
+    ) -> RelayHTTPResponse:
+        del url, headers, timeout
+        if method == "GET":
+            return RelayHTTPResponse(200, {"data": [{"id": adapter.model}]}, {})
+        assert payload is not None
+        mode = str(payload.get("response_format", {}).get("type", "prompt_json_only"))
+        modes.append(mode)
+        return _schema_invalid_response(adapter.model) if mode == "json_schema" else _success_response(adapter.model)
+
+    result = run_provider_preflight(
+        adapter,
+        request,
+        TAXONOMY,
+        environ={"GLM_API_KEY": "glm-unit-value", "GLM_BASE_URL": BASE_URL},
+        requester=requester,
+    )
+
+    assert result.passed is True
+    assert result.structured_output_mode == "json_object"
+    assert modes == ["json_schema", "json_object"]
+    first = result.attempts[0]
+    assert first.http_success is True
+    assert first.model_match is True
+    assert first.schema_valid is False
+    assert first.mode_usable is False
+    assert first.failure_category == "schema_incompatible_mode"
+    assert first.validation_error_field == "secondary_domains"
+    assert first.validation_error_type == "AnnotationSchemaError"
+    assert first.validation_error_message is not None
+
+
+def test_schema_invalid_modes_continue_to_prompt_json_only() -> None:
+    adapter = GLMRelayAnnotationAdapter(model="glm-5.3")
+    request = synthetic_annotation_request(TAXONOMY.taxonomy_revision)
+    modes: list[str] = []
+
+    def requester(
+        method: str,
+        url: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout: float,
+    ) -> RelayHTTPResponse:
+        del url, headers, timeout
+        if method == "GET":
+            return RelayHTTPResponse(200, {"data": [{"id": adapter.model}]}, {})
+        assert payload is not None
+        mode = str(payload.get("response_format", {}).get("type", "prompt_json_only"))
+        modes.append(mode)
+        return _success_response(adapter.model) if mode == "prompt_json_only" else _schema_invalid_response(adapter.model)
+
+    result = run_provider_preflight(
+        adapter,
+        request,
+        TAXONOMY,
+        environ={"GLM_API_KEY": "glm-unit-value", "GLM_BASE_URL": BASE_URL},
+        requester=requester,
+    )
+
+    assert result.passed is True
+    assert result.structured_output_mode == "prompt_json_only"
+    assert modes == ["json_schema", "json_object", "prompt_json_only"]
+    assert all(attempt.failure_category == "schema_incompatible_mode" for attempt in result.attempts[:2])
+
+
+def test_schema_invalid_then_model_mismatch_stops_negotiation() -> None:
+    adapter = GLMRelayAnnotationAdapter(model="glm-5.3")
+    request = synthetic_annotation_request(TAXONOMY.taxonomy_revision)
+    modes: list[str] = []
+
+    def requester(
+        method: str,
+        url: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout: float,
+    ) -> RelayHTTPResponse:
+        del url, headers, timeout
+        if method == "GET":
+            return RelayHTTPResponse(200, {"data": [{"id": adapter.model}]}, {})
+        assert payload is not None
+        mode = str(payload.get("response_format", {}).get("type", "prompt_json_only"))
+        modes.append(mode)
+        if mode == "json_schema":
+            return _schema_invalid_response(adapter.model)
+        return _success_response("glm-5.3-flash")
+
+    result = run_provider_preflight(
+        adapter,
+        request,
+        TAXONOMY,
+        environ={"GLM_API_KEY": "glm-unit-value", "GLM_BASE_URL": BASE_URL},
+        requester=requester,
+    )
+
+    assert result.passed is False
+    assert result.error_type == "resolved_model_mismatch"
+    assert modes == ["json_schema", "json_object"]
+    assert result.attempts[-1].failure_category == "resolved_model_mismatch"
 
 
 def test_resolved_model_mismatch_stops_without_alias_substitution() -> None:

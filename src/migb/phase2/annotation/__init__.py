@@ -19,6 +19,7 @@ from .adapters import (
 from .preflight import (
     CredentialIsolationError,
     DualProviderPreflightResult,
+    ModelIdentityProbeResult,
     ModelDiscoveryResult,
     ProviderPreflightResult,
     RelayHTTPResponse,
@@ -31,6 +32,7 @@ from .preflight import (
     run_dual_provider_preflight,
     run_provider_preflight,
     synthetic_annotation_request,
+    synthetic_identity_probe,
     synthetic_preflight_attempt,
 )
 from .retry import RetryDecision, decide_item_retry, mark_first_pass_superseded
@@ -65,6 +67,7 @@ __all__ = [
     "STRUCTURED_OUTPUT_MODES",
     "CredentialIsolationError",
     "DualProviderPreflightResult",
+    "ModelIdentityProbeResult",
     "ModelDiscoveryResult",
     "ProviderPreflightResult",
     "RelayHTTPResponse",
@@ -90,6 +93,7 @@ __all__ = [
     "run_dual_provider_preflight",
     "run_provider_preflight",
     "synthetic_annotation_request",
+    "synthetic_identity_probe",
     "synthetic_preflight_attempt",
     "taxonomy_payload_hash",
     "validate_model_output",

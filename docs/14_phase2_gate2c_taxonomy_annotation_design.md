@@ -5,7 +5,7 @@ Document: Phase 2 Gate 2C Taxonomy Annotation Execution Design
 Version: 0.1
 Status: Reviewed - Provider Preflight Blocked
 Phase: Phase 2 - Taxonomy Calibration & Source Selection
-Current Task: Gate 2C-B Provider Preflight
+Current Task: Gate 2C-B Provider Capability Diagnosis
 Evidence Contract: `evidence-v0.3-adaptive-v0.1`
 
 ## 1. 文档目的与边界
@@ -576,10 +576,10 @@ Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 Benchmark Item LLM calls: NOT EXECUTED
 ```
 
-当前 Provider capability 已完成一次 `glm-5.3` / `glm-5.2` synthetic Preflight，但尚未
-通过：`glm-5.3` 返回 HTTP 200 但 canonical Schema Validation 失败，`glm-5.2` 返回的
+此前一次 Provider capability Preflight 尚未通过：`glm-5.3` 返回 HTTP 200 但 canonical
+Schema Validation 失败，`glm-5.2` 返回的
 resolved model 为 `glm-5.3`，构成 confirmed model substitution。必须先解决这两个问题，
-且不得静默接受 substitution；在此之前不进入 Gate 2C-B 20-item Dry-run：
+且不得静默接受 substitution；该次结果不授权进入 Gate 2C-B 20-item Dry-run：
 
 ```text
 Gate 2C annotator configuration,
@@ -589,3 +589,10 @@ and 20-item dry-run protocol
 ```
 
 在上述条件满足且 Gate 2C-B 获得授权前，不发送任何真实 Benchmark Item。
+
+随后对 Annotator A=`glm-5.3` 完成 capability re-probe：`json_schema` 在 HTTP 200、model
+match 和 canonical Schema Validation 三项均通过，当前工作模式为 `json_schema`。对 B
+候选执行了最小 identity diagnostic：`glm-5.1` 和 `glm-4.7` 均发生 resolved-model
+substitution，`glm-5.3-flash` 返回 exact identity。`glm-5.3-flash` 仅为 candidate，
+不是新的冻结配置；当前 B 仍保持 `glm-5.2`，等待 Project Owner Review，且未对该 candidate
+执行正式 Annotation Schema Preflight。

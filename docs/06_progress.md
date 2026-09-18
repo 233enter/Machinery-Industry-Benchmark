@@ -4,10 +4,10 @@ Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 
 Current Milestone: Source Corpus Calibration v0.1
 
-Current Task: Gate 2C-B Provider Preflight Blocked
+Current Task: Gate 2C-B Provider Capability Diagnosis - Awaiting Owner Review
 
-Next Task: 处理 `glm-5.3` Schema Validation 失败和 `glm-5.2` resolved model mismatch；
-不得接受 silent substitution、切换模型或绕过 preflight 直接执行 dry-run。
+Next Task: Review `glm-5.3-flash` identity candidate；如 Owner 批准，才更新 B 配置并执行
+正式 Schema Preflight。不得自动替换 `glm-5.2`、接受 silent substitution 或执行 dry-run。
 
 ## Current Status
 
@@ -33,7 +33,7 @@ Next Task: 处理 `glm-5.3` Schema Validation 失败和 `glm-5.2` resolved model
 - Full Inventory: PASS。
 - Current Phase: Phase 2 - Taxonomy Calibration & Source Selection
 - Current Milestone: Source Corpus Calibration v0.1
-- Current Task: Gate 2C-B Provider Preflight Blocked
+- Current Task: Gate 2C-B Provider Capability Diagnosis - Awaiting Owner Review
 - Gate 2A: Passed；这是 Phase 2 Design Gate，不代表 Phase 2 complete。
 - Gate 2B Runtime Self-check: Passed；Run ID 为 p2b-20260915T023641Z-cbde565，Main Sample 600、Audit Pools 167、Unique selected items 767，Artifact validation passed。
 - Gate 2B Evidence Sufficiency Review: Completed；20-item Main Review Set 中 16 sufficient、1 borderline、3 insufficient，sufficient rate 80.0%。
@@ -48,7 +48,7 @@ Next Task: 处理 `glm-5.3` Schema Validation 失败和 `glm-5.2` resolved model
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
 - Gate 2C-A Design Freeze: Completed / PASSED；当前 Annotator A=`glm_relay/glm-5.3`，Annotator B=`glm_relay/glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；两者共享 `GLM_API_KEY`，Prompt、Schema、Taxonomy revision 保持不变。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；Owner-verified model discovery 后分别执行两个 independent synthetic request：A=`glm-5.3` HTTP 200 但 canonical Schema Validation 失败，B 请求=`glm-5.2`却 resolved 为 `glm-5.3`，确认 silent model substitution；未执行 20-item dry-run。
+- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；A=`glm-5.3` capability re-probe 在 `json_schema` 通过；当前 B=`glm-5.2` 仍因 confirmed resolved model substitution 被拒绝；identity diagnostic 找到 `glm-5.3-flash` exact-match candidate，但未冻结、未执行其正式 Schema Preflight；未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 - Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
@@ -104,9 +104,9 @@ Next Task: 处理 `glm-5.3` Schema Validation 失败和 `glm-5.2` resolved model
 
 ## Next Task
 
-Resolve the `glm-5.3` Schema Validation failure and the `glm-5.2` resolved-model mismatch
-without silently accepting substitution or changing the Owner-selected model pair; only then
-consider the 20-item dual-annotator dry-run.
+Review the `glm-5.3-flash` identity candidate. Only after Project Owner approval may B be
+updated and receive a formal Annotation Schema Preflight; only after that may the 20-item
+dual-annotator dry-run be considered.
 
 ## 变更记录
 
@@ -152,3 +152,4 @@ consider the 20-item dual-annotator dry-run.
 | 2026-09-16 | 根据 Project Owner 更新 Key 后重新执行 Provider Preflight：两把 Key 均存在，Grok/GLM 精确 model ID 均可用；GLM synthetic 通过，Grok `json_schema` 仍返回 HTTP 400；Gate 2C-B 继续 BLOCKED，未执行 20-item dry-run |
 | 2026-09-18 | Project Owner 取消 Grok Annotator，Gate 2C 配置更新为 `glm-5.3` / `glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；同一 GLM Key、独立请求；Prompt/Schema/Taxonomy/Evidence Contract 不变 |
 | 2026-09-18 | GLM-only Provider Preflight 完成但未通过：`glm-5.3` Schema Validation 失败，`glm-5.2` resolved model 为 `glm-5.3`；Gate 2C-B 保持 BLOCKED，未执行 20-item dry-run |
+| 2026-09-18 | 完成 capability negotiation 修正与诊断：A=`glm-5.3` 的 `json_schema` re-probe 通过；B identity candidates 中 `glm-5.1`、`glm-4.7` 发生 substitution，`glm-5.3-flash` exact-match；仅记录为 candidate，等待 Owner Review，未修改 B、未执行正式 B Schema Preflight 或 20-item dry-run |
