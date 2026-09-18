@@ -264,22 +264,27 @@ capability preflight，不允许进入 20-item 或 600-item Annotation。
 
 ### 8.1 Frozen Annotator Configuration
 
-Gate 2C-B 的首轮候选配置冻结为（configuration revision：
-`gate2c-annotator-config-v0.2`）：
+Gate 2C-B 的当前配置冻结为（configuration revision：
+`gate2c-annotator-config-v0.3`）：
 
 | Annotator | Provider | Model | Low-variance setting | Credential environment variable |
 | --- | --- | --- | --- | --- |
-| A (`annotator_a`) | `grok_relay` | `grok-4.6` | capability negotiation；具体参数 `TBD` | `GROK_API_KEY`；endpoint `GROK_BASE_URL` |
-| B (`annotator_b`) | `glm_relay` | `glm-5.3` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
+| A (`annotator_a`) | `glm_relay` | `glm-5.3` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
+| B (`annotator_b`) | `glm_relay` | `glm-5.2` | capability negotiation；具体参数 `TBD` | `GLM_API_KEY`；endpoint `GLM_BASE_URL` |
 
 配置文件为 `configs/phase2/gate2c_annotation_v0.1.yaml`。两个 Annotator 使用同一
-OpenAI-compatible Relay base URL，但必须使用不同的 API Key；Provider identity 仍分别
-记录为 `grok_relay` 和 `glm_relay`。当前 Owner 提供的 endpoint 为：
+OpenAI-compatible GLM Relay base URL 和同一个 `GLM_API_KEY`，但仍然发起两个独立的
+Inference Request；Provider identity 均记录为 `glm_relay`，Annotator identity 和
+requested model 不得合并。当前 Owner 提供的 endpoint 为：
 
 ```text
-GROK_BASE_URL=http://139.196.137.155/v1
 GLM_BASE_URL=http://139.196.137.155/v1
 ```
+
+Owner Decision：此前的 `grok-4.6 + glm-5.3` 配置因 Grok 4.6 服务预计不可用而取消，
+改为 `glm-5.3 + glm-5.2`。两者属于同一模型家族，保留的是 model-version diversity，
+不宣称与跨厂商 Annotator diversity 完全等价。双 Annotator 的独立性来自独立请求、
+相互不可见的输出、相同 Evidence/Taxonomy/Prompt/Schema 和不同 requested model。
 
 运行时只从环境变量读取 URL 和 Key，不把 Key 写入配置或 Artifact。不设置或硬编码
 `temperature`、`top_p`；Provider 支持的低随机性参数必须在 dry-run 前通过 capability
@@ -371,21 +376,22 @@ src/migb/phase2/annotation/artifacts.py
 ```
 
 Adapter 只构造 provider-shaped request、解析提供的 mock response 和返回统一 canonical
-schema。当前使用
-`OpenAICompatibleAnnotationAdapter` 及其 `GrokRelayAnnotationAdapter`、
-`GLMRelayAnnotationAdapter` 子类；Provider identity 不得退化为 `openai`。`infer()` 仍
-保持 disabled，只有独立的 preflight requester 可以发起 `/models` 和 synthetic
-`/chat/completions` 请求。
+schema。当前 Gate 2C 使用 `OpenAICompatibleAnnotationAdapter` 的
+`GLMRelayAnnotationAdapter`；通用 Grok Adapter 保留在代码中，但不再是当前 Gate 2C
+配置的 runtime dependency。Provider identity 不得退化为 `openai`。`infer()` 仍保持
+disabled，只有独立的 preflight requester 可以发起 synthetic `/chat/completions` 请求。
 
 ### 8.5 Provider Capability Preflight
 
-Provider preflight 必须分别使用 A/B 的 Key 调用各自 endpoint 的 `/models`，并以精确
-requested model ID 判断可访问性：`grok-4.6` 与 `glm-5.3` 不接受 alias 自动替换。每个
-结果至少保留 `provider_id`、`base_url`、`transport_security`、`requested_model`、
-`available_models_relevant`、HTTP status 和 error type；不保留完整 Authorization header。
+本次 Provider preflight 使用 Project Owner 已确认的 model discovery 记录，不重新调用
+`/models`；记录 `model_discovery=owner_verified`，并以精确 requested model ID 判断可
+访问性：`glm-5.3` 与 `glm-5.2` 不接受 alias 自动替换。每个结果至少保留
+`annotator_id`、`provider_id`、`base_url`、`transport_security`、`requested_model`、
+`available_models_relevant`、discovery source、HTTP status 和 error type；不保留完整
+Authorization header。
 
-只有在 `/models` 中发现精确 model ID 后，才对该 Annotator 发起一次固定 synthetic
-request。Synthetic 输入为：
+确认 requested model 可访问后，对每个 Annotator 分别发起一次固定 synthetic request；
+Synthetic 输入为：
 
 ```text
 Title: Synthetic Spur Gear Wear Study
@@ -397,9 +403,10 @@ Synthetic request 必须复用正式 Taxonomy snapshot、Prompt revision 和 Ann
 每个 Annotator 按 `json_schema`、`json_object`、`prompt_json_only` 顺序最多各尝试一次；
 每次都由本地 canonical Schema validator 校验。若响应提供 `model`，必须与 requested
 model 完全一致；若未提供则记录 `resolved_model=null`，不得自行填充。只有以下条件同时
-满足时 Provider Preflight 才能 PASS：两把 Key 均存在且不同、两个精确 model ID 均可访问、
-两次 synthetic inference 成功、最终 structured output mode 已确定、canonical Schema
-validation 通过，且没有 silent model substitution。
+满足时 Provider Preflight 才能 PASS：`GLM_API_KEY` 存在、两个精确 model ID 均可访问、
+两个 independent synthetic inference 成功、最终 structured output mode 均已确定、
+canonical Schema validation 均通过，且没有 silent model substitution。两个 Annotator
+允许共享同一个 GLM Key；共享凭据不替代独立请求和不同 model identity。
 
 ## 9. Gate 2C-B 20-item Dry-run Protocol
 
@@ -564,14 +571,15 @@ Gate 2B: PASSED
 Evidence Contract: evidence-v0.3-adaptive-v0.1
 Gate 2C-A: PASSED
 Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
-Gate 2C-B 20-item Dry-run: NOT AUTHORIZED
+Gate 2C-B 20-item Dry-run: NOT READY / NOT AUTHORIZED
 Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED
 Benchmark Item LLM calls: NOT EXECUTED
 ```
 
-下一步必须先处理 Grok Relay synthetic `json_schema` HTTP 400，并重新执行 capability
-preflight；不得更换 `grok-4.6` 或 `glm-5.3`。只有 technical preflight 通过，且 Project
-Owner 接受明文 HTTP 风险或切换到 HTTPS endpoint 后，才可另行授权 Gate 2C-B：
+当前 Provider capability 已完成一次 `glm-5.3` / `glm-5.2` synthetic Preflight，但尚未
+通过：`glm-5.3` 返回 HTTP 200 但 canonical Schema Validation 失败，`glm-5.2` 返回的
+resolved model 为 `glm-5.3`，构成 confirmed model substitution。必须先解决这两个问题，
+且不得静默接受 substitution；在此之前不进入 Gate 2C-B 20-item Dry-run：
 
 ```text
 Gate 2C annotator configuration,

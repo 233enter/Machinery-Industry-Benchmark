@@ -115,3 +115,55 @@ substitute a model alias, change the frozen model IDs, or run the 20-item dry-ru
 | 600-item annotation | Not run |
 | OCR / Source Selection | Not run |
 | Runtime Annotation Artifact | Not created |
+
+## 7. Current Owner Decision: GLM-only Configuration
+
+本节为当前有效 Provider Preflight 结果；第 2–6 节中的 Grok / GLM 组合属于历史配置。
+Project Owner 因 Grok 4.6 服务预计不可用，取消 Grok Annotator，并将 configuration
+revision 更新为 `gate2c-annotator-config-v0.3`。
+
+| Check | Annotator A | Annotator B |
+| --- | --- | --- |
+| Annotator ID | `annotator_a` | `annotator_b` |
+| Provider | `glm_relay` | `glm_relay` |
+| Requested model | `glm-5.3` | `glm-5.2` |
+| Credential presence | `GLM_API_KEY present=true` | Shared `GLM_API_KEY present=true` |
+| Credential policy | Shared GLM credential allowed | Shared GLM credential allowed |
+| Model discovery | Owner-verified; exact model available | Owner-verified; exact model available |
+| Synthetic request count | `1` | `1` |
+| Structured output attempted | `json_schema` | `json_schema` |
+| HTTP status | `200` | `200` |
+| Resolved model | `glm-5.3` | `glm-5.3` |
+| Model match | `true` | `false` |
+| Canonical Schema validation | `false` (`AnnotationSchemaError`) | `true` |
+| Latency | `22924 ms` | `20967 ms` |
+| Input / output / reasoning tokens | `2296 / 1544 / 1326` | `2296 / 1445 / 1251` |
+| Result | Failed Schema Validation | Failed resolved-model match |
+
+The A/B requests used the same synthetic Evidence, Taxonomy snapshot, Prompt semantics and
+Schema, but were sent as independent requests. The `glm-5.2` request resolved to `glm-5.3`,
+which is a confirmed silent model substitution and is rejected. The `glm-5.3` request returned
+the requested model but failed local canonical Schema Validation. No `/models` request was made
+in this run because discovery was explicitly recorded as `owner_verified`.
+
+```text
+transport_security = plaintext_http
+Gate 2C-B Provider Preflight = BLOCKED BY PROVIDER PREFLIGHT
+20-item Dual-Annotator Dry-run = NOT AUTHORIZED
+```
+
+No credential values, prefixes, suffixes, lengths, or Authorization headers were printed,
+logged, persisted, or committed.
+
+## 8. Current Validation
+
+| Check | Result |
+| --- | --- |
+| Mock/unit tests | `89 passed` |
+| `/models` request | Not made; discovery source was `owner_verified` |
+| Synthetic requests | `2 total`, one per independent Annotator |
+| Technical Provider Preflight | `BLOCKED` |
+| 20-item dry-run | Not run |
+| 600-item annotation | Not run |
+| OCR / Source Selection | Not run |
+| Runtime Annotation Artifact | Not created |

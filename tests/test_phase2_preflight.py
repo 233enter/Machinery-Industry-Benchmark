@@ -17,6 +17,7 @@ from migb.phase2.annotation.preflight import (
     credentials_are_distinct,
     discover_models,
     load_provider_environment,
+    owner_verified_model_discovery,
     require_distinct_credentials,
     run_dual_provider_preflight,
     run_provider_preflight,
@@ -167,6 +168,114 @@ def test_dual_preflight_preserves_provider_identity_with_shared_endpoint() -> No
     ]
     assert all(call[1] == f"{BASE_URL}/models" for call in calls if call[0] == "GET")
     assert all(call[1] == f"{BASE_URL}/chat/completions" for call in calls if call[0] == "POST")
+
+
+def test_shared_glm_credential_supports_two_independent_model_annotators_without_discovery_call() -> None:
+    adapter_a = GLMRelayAnnotationAdapter(
+        annotator_id="annotator_a",
+        annotation_pass="a",
+        model="glm-5.3",
+        api_key_env="GLM_API_KEY",
+        base_url_env="GLM_BASE_URL",
+    )
+    adapter_b = GLMRelayAnnotationAdapter(
+        annotator_id="annotator_b",
+        annotation_pass="b",
+        model="glm-5.2",
+        api_key_env="GLM_API_KEY",
+        base_url_env="GLM_BASE_URL",
+    )
+    request = synthetic_annotation_request(TAXONOMY.taxonomy_revision)
+    environ = {
+        "GLM_API_KEY": "shared-glm-unit-value",
+        "GLM_BASE_URL": BASE_URL,
+    }
+    discoveries = (
+        owner_verified_model_discovery(
+            adapter_a,
+            ("glm-5.3", "glm-5.2"),
+            environ=environ,
+        ),
+        owner_verified_model_discovery(
+            adapter_b,
+            ("glm-5.3", "glm-5.2"),
+            environ=environ,
+        ),
+    )
+    calls: list[tuple[str, Mapping[str, Any] | None]] = []
+
+    def requester(
+        method: str,
+        url: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout: float,
+    ) -> RelayHTTPResponse:
+        del url, timeout
+        calls.append((method, payload))
+        assert method == "POST"
+        assert headers["Authorization"] == "Bearer shared-glm-unit-value"
+        assert payload is not None
+        return _success_response(str(payload["model"]))
+
+    result = run_dual_provider_preflight(
+        (adapter_a, adapter_b),
+        request,
+        TAXONOMY,
+        environ=environ,
+        requester=requester,
+        discoveries=discoveries,
+    )
+
+    assert result.passed is True
+    assert result.credentials_shared is True
+    assert result.credentials_distinct is None
+    assert [item.annotator_id for item in result.provider_results] == [
+        "annotator_a",
+        "annotator_b",
+    ]
+    assert [item.requested_model for item in result.provider_results] == ["glm-5.3", "glm-5.2"]
+    assert [item.provider for item in result.provider_results] == ["glm_relay", "glm_relay"]
+    assert [item.structured_output_mode for item in result.provider_results] == [
+        "json_schema",
+        "json_schema",
+    ]
+    assert [method for method, _ in calls] == ["POST", "POST"]
+    assert [payload["model"] for _, payload in calls if payload is not None] == [
+        "glm-5.3",
+        "glm-5.2",
+    ]
+    assert all(item.discovery.discovery_source == "owner_verified" for item in result.provider_results)
+
+
+def test_shared_glm_credential_missing_fails_before_synthetic_requests() -> None:
+    adapter_a = GLMRelayAnnotationAdapter(model="glm-5.3")
+    adapter_b = GLMRelayAnnotationAdapter(
+        annotator_id="annotator_b",
+        annotation_pass="b",
+        model="glm-5.2",
+    )
+    environ = {"GLM_BASE_URL": BASE_URL}
+    discoveries = (
+        owner_verified_model_discovery(adapter_a, ("glm-5.3", "glm-5.2"), environ=environ),
+        owner_verified_model_discovery(adapter_b, ("glm-5.3", "glm-5.2"), environ=environ),
+    )
+
+    def requester(*args: Any, **kwargs: Any) -> RelayHTTPResponse:
+        raise AssertionError("missing GLM credential must not call the relay")
+
+    result = run_dual_provider_preflight(
+        (adapter_a, adapter_b),
+        synthetic_annotation_request(TAXONOMY.taxonomy_revision),
+        TAXONOMY,
+        environ=environ,
+        requester=requester,
+        discoveries=discoveries,
+    )
+
+    assert result.passed is False
+    assert result.credentials_shared is True
+    assert all(item.error_type == "MissingCredentialsError" for item in result.provider_results)
 
 
 def test_structured_output_negotiation_falls_back_in_order() -> None:

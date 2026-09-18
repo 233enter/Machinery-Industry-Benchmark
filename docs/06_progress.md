@@ -6,8 +6,8 @@ Current Milestone: Source Corpus Calibration v0.1
 
 Current Task: Gate 2C-B Provider Preflight Blocked
 
-Next Task: 处理 Grok Relay synthetic `json_schema` HTTP 400，并重新执行 capability
-preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dry-run。
+Next Task: 处理 `glm-5.3` Schema Validation 失败和 `glm-5.2` resolved model mismatch；
+不得接受 silent substitution、切换模型或绕过 preflight 直接执行 dry-run。
 
 ## Current Status
 
@@ -47,8 +47,8 @@ preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dr
 - Evidence Contract: `evidence-v0.3-adaptive-v0.1`。
 - Gate 2B Final Verdict: PASSED；20/20 reviewed Main items 存在 primary 或 validated fallback Evidence 路径。
 - Full 767-item Evidence v0.3 Precomputation: CANCELLED / NOT REQUIRED；Gate 2B canonical Runtime 保持 immutable。
-- Gate 2C-A Design Freeze: Completed / PASSED；Annotator A=`grok_relay/grok-4.6`，Annotator B=`glm_relay/glm-5.3`，configuration revision=`gate2c-annotator-config-v0.2`；Prompt、Schema、Taxonomy revision 保持不变。
-- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；更新 Key 后重新执行仍确认两把 Key 均存在，Grok/GLM `/models` 均发现精确 model ID；GLM synthetic 通过，Grok synthetic `json_schema` 仍返回 HTTP 400，未执行 20-item dry-run。
+- Gate 2C-A Design Freeze: Completed / PASSED；当前 Annotator A=`glm_relay/glm-5.3`，Annotator B=`glm_relay/glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；两者共享 `GLM_API_KEY`，Prompt、Schema、Taxonomy revision 保持不变。
+- Gate 2C-B Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT；Owner-verified model discovery 后分别执行两个 independent synthetic request：A=`glm-5.3` HTTP 200 但 canonical Schema Validation 失败，B 请求=`glm-5.2`却 resolved 为 `glm-5.3`，确认 silent model substitution；未执行 20-item dry-run。
 - Gate 2C Relay transport: 当前 Owner 指定 endpoint 为明文 HTTP，`transport_security=plaintext_http`；technical preflight 不因该风险自动阻塞，但 20-item dry-run 仍需 Owner 接受风险或切换 HTTPS。
 - Gate 2C Provider 配置入口：预检脚本默认读取 Git-ignored、owner-only 的 `configs/phase2/gate2c_provider.local.env`；也支持 `MIGB_PROVIDER_ENV_FILE` 或 `--provider-env-file` 指定其他文件。
 
@@ -104,7 +104,9 @@ preflight；不得更换冻结模型，也不得绕过 preflight 直接执行 dr
 
 ## Next Task
 
-Resolve the Grok Relay synthetic preflight HTTP 400 without changing the frozen model ID, rerun the Provider capability preflight, and only then consider the 20-item dual-annotator dry-run.
+Resolve the `glm-5.3` Schema Validation failure and the `glm-5.2` resolved-model mismatch
+without silently accepting substitution or changing the Owner-selected model pair; only then
+consider the 20-item dual-annotator dry-run.
 
 ## 变更记录
 
@@ -148,3 +150,5 @@ Resolve the Grok Relay synthetic preflight HTTP 400 without changing the frozen 
 | 2026-09-16 | Provider 配置已加载并完成实际 Preflight：两把 Key 均存在且不同，Grok/GLM 精确 model ID 均可用；GLM `json_schema` synthetic 通过，Grok `json_schema` 返回 HTTP 400；Gate 2C-B 仍 BLOCKED，未执行 20-item dry-run |
 | 2026-09-16 | 增加本地 Provider 环境文件加载入口和模板；真实 Key 保持 Git-ignored、owner-only，预检脚本可自动读取；Unit Tests 更新为 87 passed |
 | 2026-09-16 | 根据 Project Owner 更新 Key 后重新执行 Provider Preflight：两把 Key 均存在，Grok/GLM 精确 model ID 均可用；GLM synthetic 通过，Grok `json_schema` 仍返回 HTTP 400；Gate 2C-B 继续 BLOCKED，未执行 20-item dry-run |
+| 2026-09-18 | Project Owner 取消 Grok Annotator，Gate 2C 配置更新为 `glm-5.3` / `glm-5.2`，configuration revision=`gate2c-annotator-config-v0.3`；同一 GLM Key、独立请求；Prompt/Schema/Taxonomy/Evidence Contract 不变 |
+| 2026-09-18 | GLM-only Provider Preflight 完成但未通过：`glm-5.3` Schema Validation 失败，`glm-5.2` resolved model 为 `glm-5.3`；Gate 2C-B 保持 BLOCKED，未执行 20-item dry-run |

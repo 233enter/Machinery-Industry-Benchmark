@@ -268,6 +268,7 @@ class ModelDiscoveryResult:
     relevant_models: tuple[str, ...]
     requested_model_accessible: bool
     error_type: str | None
+    discovery_source: str = "network"
 
 
 def discover_models(
@@ -333,6 +334,47 @@ def discover_models(
     )
 
 
+def owner_verified_model_discovery(
+    adapter: OpenAICompatibleAnnotationAdapter,
+    verified_model_ids: tuple[str, ...] | list[str],
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> ModelDiscoveryResult:
+    """Create a non-network discovery record from an Owner-verified model list."""
+
+    try:
+        base_url = adapter.base_url(environ)
+        transport_security = adapter.transport_security(environ)
+    except Exception as exc:
+        return ModelDiscoveryResult(
+            provider=adapter.provider,
+            base_url=None,
+            transport_security=None,
+            requested_model=adapter.model,
+            status_code=None,
+            model_ids=(),
+            relevant_models=(),
+            requested_model_accessible=False,
+            error_type=type(exc).__name__,
+            discovery_source="owner_verified",
+        )
+
+    model_ids = tuple(dict.fromkeys(verified_model_ids))
+    requested_model_accessible = adapter.model in model_ids
+    return ModelDiscoveryResult(
+        provider=adapter.provider,
+        base_url=base_url,
+        transport_security=transport_security,
+        requested_model=adapter.model,
+        status_code=None,
+        model_ids=model_ids,
+        relevant_models=relevant_model_excerpt(model_ids, adapter.model),
+        requested_model_accessible=requested_model_accessible,
+        error_type=None if requested_model_accessible else "owner_verified_model_missing",
+        discovery_source="owner_verified",
+    )
+
+
 def _response_model(payload: Any) -> str | None:
     if isinstance(payload, Mapping) and isinstance(payload.get("model"), str):
         return payload["model"]
@@ -384,6 +426,7 @@ def _is_unsupported_response_format(payload: Any, status_code: int | None) -> bo
 
 @dataclass(frozen=True)
 class SyntheticPreflightAttempt:
+    annotator_id: str
     provider: str
     endpoint: str
     requested_model: str
@@ -459,6 +502,7 @@ def synthetic_preflight_attempt(
     if http_success and not model_match:
         error_type = "resolved_model_mismatch"
     return SyntheticPreflightAttempt(
+        annotator_id=adapter.annotator_id,
         provider=adapter.provider,
         endpoint=endpoint,
         requested_model=adapter.model,
@@ -482,6 +526,7 @@ def synthetic_preflight_attempt(
 
 @dataclass(frozen=True)
 class ProviderPreflightResult:
+    annotator_id: str
     provider: str
     requested_model: str
     discovery: ModelDiscoveryResult
@@ -493,10 +538,11 @@ class ProviderPreflightResult:
 
 @dataclass(frozen=True)
 class DualProviderPreflightResult:
-    """Combined result for two independently credentialed Annotators."""
+    """Combined result for two independently invoked Annotators."""
 
     provider_results: tuple[ProviderPreflightResult, ...]
     credential_presence: Mapping[str, bool]
+    credentials_shared: bool
     credentials_distinct: bool | None
     passed: bool
     error_type: str | None
@@ -510,17 +556,20 @@ def run_provider_preflight(
     environ: Mapping[str, str] | None = None,
     requester: RelayRequester = default_relay_requester,
     timeout: float = 60.0,
+    discovery: ModelDiscoveryResult | None = None,
 ) -> ProviderPreflightResult:
-    """Run model discovery then capability negotiation for one provider/key."""
+    """Run discovery (or use an injected record) then capability negotiation."""
 
-    discovery = discover_models(
-        adapter,
-        environ=environ,
-        requester=requester,
-        timeout=min(timeout, 30.0),
-    )
+    if discovery is None:
+        discovery = discover_models(
+            adapter,
+            environ=environ,
+            requester=requester,
+            timeout=min(timeout, 30.0),
+        )
     if not discovery.requested_model_accessible:
         return ProviderPreflightResult(
+            annotator_id=adapter.annotator_id,
             provider=adapter.provider,
             requested_model=adapter.model,
             discovery=discovery,
@@ -528,6 +577,20 @@ def run_provider_preflight(
             structured_output_mode=None,
             passed=False,
             error_type=discovery.error_type or "requested_model_not_discovered",
+        )
+
+    try:
+        adapter.credential_value(environ)
+    except Exception as exc:
+        return ProviderPreflightResult(
+            annotator_id=adapter.annotator_id,
+            provider=adapter.provider,
+            requested_model=adapter.model,
+            discovery=discovery,
+            attempts=(),
+            structured_output_mode=None,
+            passed=False,
+            error_type=type(exc).__name__,
         )
 
     attempts: list[SyntheticPreflightAttempt] = []
@@ -545,6 +608,7 @@ def run_provider_preflight(
         attempts.append(attempt)
         if attempt.passed:
             return ProviderPreflightResult(
+                annotator_id=adapter.annotator_id,
                 provider=adapter.provider,
                 requested_model=adapter.model,
                 discovery=discovery,
@@ -556,6 +620,7 @@ def run_provider_preflight(
         if not attempt.unsupported_response_format or not attempt.model_match:
             break
     return ProviderPreflightResult(
+        annotator_id=adapter.annotator_id,
         provider=adapter.provider,
         requested_model=adapter.model,
         discovery=discovery,
@@ -591,6 +656,7 @@ def _blocked_provider_preflight(
         error_type=error_type,
     )
     return ProviderPreflightResult(
+        annotator_id=adapter.annotator_id,
         provider=adapter.provider,
         requested_model=adapter.model,
         discovery=discovery,
@@ -610,23 +676,27 @@ def run_dual_provider_preflight(
     environ: Mapping[str, str] | None = None,
     requester: RelayRequester = default_relay_requester,
     timeout: float = 60.0,
+    discoveries: tuple[ModelDiscoveryResult, ModelDiscoveryResult] | None = None,
 ) -> DualProviderPreflightResult:
-    """Run A/B discovery and synthetic capability negotiation with key isolation."""
+    """Run independent A/B synthetic probes with explicit credential semantics."""
 
     if len(adapters) != 2:
         raise ValueError("dual-provider preflight requires exactly two adapters")
+    if discoveries is not None and len(discoveries) != 2:
+        raise ValueError("dual-provider preflight requires two discovery records")
     first, second = adapters
     source = os.environ if environ is None else environ
     presence = {
         first.api_key_env: bool(source.get(first.api_key_env)),
         second.api_key_env: bool(source.get(second.api_key_env)),
     }
-    distinct = credentials_are_distinct(
+    shared_credentials = first.provider == second.provider and first.api_key_env == second.api_key_env
+    distinct = None if shared_credentials else credentials_are_distinct(
         first.api_key_env,
         second.api_key_env,
         environ,
     )
-    if distinct is False:
+    if not shared_credentials and distinct is False:
         blocked = (
             _blocked_provider_preflight(first, "credential_isolation_failed", environ),
             _blocked_provider_preflight(second, "credential_isolation_failed", environ),
@@ -634,11 +704,13 @@ def run_dual_provider_preflight(
         return DualProviderPreflightResult(
             provider_results=blocked,
             credential_presence=presence,
+            credentials_shared=False,
             credentials_distinct=False,
             passed=False,
             error_type="credential_isolation_failed",
         )
 
+    discovery_records = discoveries or (None, None)
     results = tuple(
         run_provider_preflight(
             adapter,
@@ -647,12 +719,14 @@ def run_dual_provider_preflight(
             environ=environ,
             requester=requester,
             timeout=timeout,
+            discovery=discovery,
         )
-        for adapter in (first, second)
+        for adapter, discovery in zip((first, second), discovery_records, strict=True)
     )
-    all_passed = distinct is True and all(result.passed for result in results)
+    credential_policy_satisfied = shared_credentials or distinct is True
+    all_passed = credential_policy_satisfied and all(result.passed for result in results)
     error_type = None
-    if distinct is not True:
+    if not credential_policy_satisfied:
         error_type = "credentials_missing_or_not_distinct"
     elif not all_passed:
         error_type = next(
@@ -662,6 +736,7 @@ def run_dual_provider_preflight(
     return DualProviderPreflightResult(
         provider_results=results,
         credential_presence=presence,
+        credentials_shared=shared_credentials,
         credentials_distinct=distinct,
         passed=all_passed,
         error_type=error_type,

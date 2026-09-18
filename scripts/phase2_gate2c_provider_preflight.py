@@ -16,14 +16,12 @@ import yaml
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
-from migb.phase2.annotation.adapters import (
-    GLMRelayAnnotationAdapter,
-    GrokRelayAnnotationAdapter,
-)
+from migb.phase2.annotation.adapters import GLMRelayAnnotationAdapter
 from migb.phase2.annotation.preflight import (
     DualProviderPreflightResult,
     ProviderPreflightResult,
     load_provider_environment,
+    owner_verified_model_discovery,
     run_dual_provider_preflight,
     synthetic_annotation_request,
 )
@@ -36,18 +34,11 @@ DEFAULT_PROVIDER_ENV_FILE = REPOSITORY_ROOT / "configs/phase2/gate2c_provider.lo
 
 
 def _adapter_from_config(label: str, raw: dict[str, Any]):
-    if label == "a":
-        adapter_type = GrokRelayAnnotationAdapter
-        expected_provider = "grok_relay"
-    elif label == "b":
-        adapter_type = GLMRelayAnnotationAdapter
-        expected_provider = "glm_relay"
-    else:  # pragma: no cover - configuration is fixed to A/B
+    if label not in {"a", "b"}:  # pragma: no cover - configuration is fixed to A/B
         raise ValueError(f"unsupported annotator label: {label}")
-
-    if raw.get("provider") != expected_provider:
+    if raw.get("provider") != "glm_relay":
         raise ValueError(f"annotator {label} provider does not match the frozen contract")
-    return adapter_type(
+    return GLMRelayAnnotationAdapter(
         annotator_id=raw["annotator_id"],
         annotation_pass=label,
         model=raw["model"],
@@ -58,6 +49,7 @@ def _adapter_from_config(label: str, raw: dict[str, Any]):
 
 def _attempt_summary(attempt: Any) -> dict[str, Any]:
     return {
+        "annotator_id": attempt.annotator_id,
         "provider_id": attempt.provider,
         "endpoint": attempt.endpoint,
         "requested_model": attempt.requested_model,
@@ -82,11 +74,13 @@ def _attempt_summary(attempt: Any) -> dict[str, Any]:
 def _provider_summary(result: ProviderPreflightResult) -> dict[str, Any]:
     discovery = result.discovery
     return {
+        "annotator_id": result.annotator_id,
         "provider_id": result.provider,
         "requested_model": result.requested_model,
         "base_url": discovery.base_url,
         "transport_security": discovery.transport_security,
         "models_http_status": discovery.status_code,
+        "model_discovery_source": discovery.discovery_source,
         "available_models_relevant": list(discovery.relevant_models),
         "requested_model_accessible": discovery.requested_model_accessible,
         "models_error_type": discovery.error_type,
@@ -111,7 +105,7 @@ def _summary(
         "schema_revision": raw_config.get("schema_revision"),
         "taxonomy_revision": raw_config.get("taxonomy_revision"),
         "credential_presence": dict(result.credential_presence),
-        "credentials_distinct": result.credentials_distinct,
+        "credentials_shared": result.credentials_shared,
         "provider_preflight_passed": result.passed,
         "provider_preflight_error_type": result.error_type,
         "providers": [_provider_summary(item) for item in result.provider_results],
@@ -147,12 +141,31 @@ def main() -> int:
     taxonomy = load_taxonomy_snapshot(args.taxonomy)
     request = synthetic_annotation_request(taxonomy.taxonomy_revision)
     runtime_environment = load_provider_environment(args.provider_env_file, os.environ)
+    execution_config = raw_config.get("execution")
+    if not isinstance(execution_config, dict):
+        raise ValueError("Gate 2C configuration must contain execution settings")
+    if execution_config.get("model_discovery_source") != "owner_verified":
+        raise ValueError("current Gate 2C preflight requires owner-verified model discovery")
+    verified_models = execution_config.get("owner_verified_models")
+    if not isinstance(verified_models, list) or not all(
+        isinstance(model, str) and model.strip() for model in verified_models
+    ):
+        raise ValueError("owner_verified_models must be a non-empty string list")
+    discoveries = tuple(
+        owner_verified_model_discovery(
+            adapter,
+            tuple(verified_models),
+            environ=runtime_environment,
+        )
+        for adapter in adapters
+    )
     result = run_dual_provider_preflight(
         adapters,
         request,
         taxonomy,
         environ=runtime_environment,
         timeout=args.timeout,
+        discoveries=discoveries,
     )
     print(json.dumps(_summary(raw_config, result), ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if result.passed else 2

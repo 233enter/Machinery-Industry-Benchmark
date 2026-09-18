@@ -177,41 +177,43 @@ def test_prompt_is_deterministic_and_excludes_routing_metadata() -> None:
 def test_provider_request_construction_and_configuration_are_separate_from_credentials() -> None:
     taxonomy = load_taxonomy_snapshot(TAXONOMY_PATH)
     request = _request()
-    grok = GrokRelayAnnotationAdapter(
+    glm_a = GLMRelayAnnotationAdapter(
         annotator_id="annotator_a",
         annotation_pass="a",
-        model="grok-4.6",
-        api_key_env="GROK_API_KEY",
-        base_url_env="GROK_BASE_URL",
+        model="glm-5.3",
+        api_key_env="GLM_API_KEY",
+        base_url_env="GLM_BASE_URL",
         reasoning_effort="low",
     )
-    built_a = grok.build_request(request, taxonomy)
+    built_a = glm_a.build_request(request, taxonomy)
     payload_a = built_a["payload"]
-    assert built_a["provider"] == "grok_relay"
-    assert grok.provider_id == "grok_relay"
-    assert payload_a["model"] == "grok-4.6"
+    assert built_a["provider"] == "glm_relay"
+    assert glm_a.provider_id == "glm_relay"
+    assert payload_a["model"] == "glm-5.3"
     assert payload_a["reasoning_effort"] == "low"
     assert payload_a["response_format"]["type"] == "json_schema"
     assert "temperature" not in payload_a
     assert "top_p" not in payload_a
-    assert "GROK_API_KEY" not in json.dumps(built_a)
+    assert "GLM_API_KEY" not in json.dumps(built_a)
     assert built_a["provenance"]["peer_annotation_visible"] is False
 
-    glm = GLMRelayAnnotationAdapter(
+    glm_b = GLMRelayAnnotationAdapter(
         annotator_id="annotator_b",
         annotation_pass="b",
-        model="glm-5.3",
+        model="glm-5.2",
         api_key_env="GLM_API_KEY",
         base_url_env="GLM_BASE_URL",
     )
-    built_b = glm.build_request(request, taxonomy, structured_output_mode="json_object")
+    built_b = glm_b.build_request(request, taxonomy, structured_output_mode="json_object")
     assert built_b["provider"] == "glm_relay"
-    assert glm.provider_id == "glm_relay"
-    assert built_b["payload"]["model"] == "glm-5.3"
+    assert glm_b.provider_id == "glm_relay"
+    assert built_b["payload"]["model"] == "glm-5.2"
+    assert payload_a["model"] != built_b["payload"]["model"]
+    assert glm_a.annotator_id != glm_b.annotator_id
     assert built_b["payload"]["response_format"] == {"type": "json_object"}
     assert "temperature" not in built_b["payload"]
     assert "top_p" not in built_b["payload"]
-    prompt_only = glm.build_request(request, taxonomy, structured_output_mode="prompt_json_only")
+    prompt_only = glm_b.build_request(request, taxonomy, structured_output_mode="prompt_json_only")
     assert "response_format" not in prompt_only["payload"]
 
 
@@ -386,15 +388,18 @@ def test_gate2c_artifact_layout_and_row_identity_are_explicit() -> None:
 
 def test_gate2c_config_declares_models_without_secrets() -> None:
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    assert config["annotation_revision"] == "gate2c-annotator-config-v0.2"
-    assert config["annotators"]["a"]["provider"] == "grok_relay"
-    assert config["annotators"]["a"]["model"] == "grok-4.6"
-    assert config["annotators"]["a"]["api_key_env"] == "GROK_API_KEY"
-    assert config["annotators"]["a"]["base_url_env"] == "GROK_BASE_URL"
+    assert config["annotation_revision"] == "gate2c-annotator-config-v0.3"
+    assert config["annotators"]["a"]["provider"] == "glm_relay"
+    assert config["annotators"]["a"]["model"] == "glm-5.3"
+    assert config["annotators"]["a"]["api_key_env"] == "GLM_API_KEY"
+    assert config["annotators"]["a"]["base_url_env"] == "GLM_BASE_URL"
     assert config["annotators"]["b"]["provider"] == "glm_relay"
-    assert config["annotators"]["b"]["model"] == "glm-5.3"
+    assert config["annotators"]["b"]["model"] == "glm-5.2"
     assert config["annotators"]["b"]["api_key_env"] == "GLM_API_KEY"
     assert config["annotators"]["b"]["base_url_env"] == "GLM_BASE_URL"
+    assert config["execution"]["model_discovery_source"] == "owner_verified"
+    assert config["execution"]["owner_verified_models"] == ["glm-5.3", "glm-5.2"]
+    assert config["credentials"]["policy"] == "shared_glm_credential_allowed"
     assert config["execution"]["preflight_endpoint"] == "/chat/completions"
     assert config["execution"]["model_discovery_endpoint"] == "/models"
     assert config["execution"]["provider_preflight_network_enabled"] is True
@@ -407,5 +412,6 @@ def test_gate2c_config_declares_models_without_secrets() -> None:
     assert config["execution"]["max_format_retries"] == 1
     assert config["execution"]["max_evidence_retry_count"] == 1
     serialized = json.dumps(config).lower()
+    assert "grok" not in serialized
     assert "sk-" not in serialized
     assert "secret" not in serialized

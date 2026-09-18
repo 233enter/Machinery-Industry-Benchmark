@@ -1,4 +1,4 @@
-annotation_revision: gate2c-annotator-config-v0.2
+annotation_revision: gate2c-annotator-config-v0.3
 prompt_revision: taxonomy-annotation-prompt-v0.1
 schema_revision: taxonomy-annotation-schema-v0.1
 taxonomy_revision: taxonomy-v0.1
@@ -15,6 +15,10 @@ execution:
   rag_enabled: false
   preflight_endpoint: /chat/completions
   model_discovery_endpoint: /models
+  model_discovery_source: owner_verified
+  owner_verified_models:
+    - glm-5.3
+    - glm-5.2
   structured_output_capability_order:
     - json_schema
     - json_object
@@ -27,22 +31,21 @@ execution:
 annotators:
   a:
     annotator_id: annotator_a
-    provider: grok_relay
-    model: grok-4.6
-    api_key_env: GROK_API_KEY
-    base_url_env: GROK_BASE_URL
-    structured_output_mode: capability_negotiation
-
-  b:
-    annotator_id: annotator_b
     provider: glm_relay
     model: glm-5.3
     api_key_env: GLM_API_KEY
     base_url_env: GLM_BASE_URL
     structured_output_mode: capability_negotiation
 
+  b:
+    annotator_id: annotator_b
+    provider: glm_relay
+    model: glm-5.2
+    api_key_env: GLM_API_KEY
+    base_url_env: GLM_BASE_URL
+    structured_output_mode: capability_negotiation
+
 credentials:
-  grok_api_key_env: GROK_API_KEY
-  grok_base_url_env: GROK_BASE_URL
   glm_api_key_env: GLM_API_KEY
   glm_base_url_env: GLM_BASE_URL
+  policy: shared_glm_credential_allowed

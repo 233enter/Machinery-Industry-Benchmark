@@ -167,3 +167,58 @@ Technical Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
 本次重试确认 Key presence 和目标模型可用性，但未满足“两路 synthetic annotation 均成功
 且 canonical schema validation 均通过”的 Provider Preflight PASS 条件。按 Gate 2C-B
 协议停止，等待 Grok Relay HTTP 400 的进一步处理。
+
+## 9. Current Owner Decision and GLM-only Provider Preflight
+
+本节为当前有效结果；前述 Grok / GLM 记录属于历史配置和历史阻塞记录。Project Owner
+因 Grok 4.6 服务预计不可用，取消 Grok Annotator，并将 configuration revision 更新为
+`gate2c-annotator-config-v0.3`。Prompt、Schema、Taxonomy 和 Evidence Contract 未改变。
+
+| Field | Current value |
+| --- | --- |
+| Annotator A | `annotator_a` / `glm_relay` / `glm-5.3` |
+| Annotator B | `annotator_b` / `glm_relay` / `glm-5.2` |
+| Credential environment | `GLM_API_KEY` shared by A/B; `GLM_API_KEY present=true` |
+| Inference isolation | Two independent requests; no peer-output visibility |
+| Model discovery | `owner_verified`; no `/models` request in this run |
+| Prompt revision | `taxonomy-annotation-prompt-v0.1` |
+| Schema revision | `taxonomy-annotation-schema-v0.1` |
+| Taxonomy revision | `taxonomy-v0.1` |
+| Evidence Contract | `evidence-v0.3-adaptive-v0.1` |
+| Transport security | `plaintext_http` |
+
+### 9.1 Synthetic Preflight Results
+
+Both Annotators used the same formal synthetic document, Taxonomy snapshot, Prompt semantics
+and canonical Annotation Schema. No real Benchmark Evidence was used.
+
+| Check | Annotator A / GLM-5.3 | Annotator B / GLM-5.2 |
+| --- | --- | --- |
+| Synthetic request count | `1` | `1` |
+| Requested model | `glm-5.3` | `glm-5.2` |
+| Resolved model | `glm-5.3` | `glm-5.3` |
+| Structured output attempted | `json_schema` | `json_schema` |
+| Final structured output mode | Unresolved; preflight failed | Unresolved; preflight failed |
+| HTTP status | `200` | `200` |
+| Model match | `true` | `false` |
+| Canonical Schema validation | `false` (`AnnotationSchemaError`) | `true` |
+| Request ID | `20260918101628b7224ef37371486f` | `20260918101651dc07df48280c4f49` |
+| Input / output / reasoning tokens | `2296 / 1544 / 1326` | `2296 / 1445 / 1251` |
+| Latency | `22924 ms` | `20967 ms` |
+| Transport / format retries | `0 / 0` | `0 / 0` |
+| Result | Failed Schema Validation | Failed resolved-model match |
+
+The `glm-5.2` request returned `model=glm-5.3`; this is a confirmed silent model substitution
+and is not accepted as an alias. The `glm-5.3` request returned the requested model but its
+response did not pass local canonical Schema Validation. No fallback mode was attempted because
+the `json_schema` requests returned HTTP 200 and were not classified as unsupported-format
+responses.
+
+```text
+Provider Preflight: BLOCKED BY PROVIDER PREFLIGHT
+20-item Dual-Annotator Dry-run: NO / NOT AUTHORIZED
+600-item Annotation: NOT RUN
+OCR / Source Selection: NOT RUN
+```
+
+按协议停止，不更换模型、不接受 substitution、不执行 20-item Dry-run。
